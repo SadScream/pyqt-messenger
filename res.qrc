@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>icons/attachment.png</file>
+    <file>icons/send.png</file>
+    <file>icons/chat.png</file>
+  </qresource>
+</RCC>
