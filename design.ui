@@ -26,7 +26,7 @@
    <string>SadGram</string>
   </property>
   <property name="windowIcon">
-   <iconset>
+   <iconset resource="res.qrc">
     <normaloff>:/icons/icons/chat.png</normaloff>:/icons/icons/chat.png</iconset>
   </property>
   <property name="styleSheet">
@@ -39,7 +39,7 @@
       <x>5</x>
       <y>5</y>
       <width>345</width>
-      <height>27</height>
+      <height>28</height>
      </rect>
     </property>
     <property name="contextMenuPolicy">
@@ -54,6 +54,9 @@
     <property name="inputMethodHints">
      <set>Qt::ImhLatinOnly</set>
     </property>
+    <property name="lineWidth">
+     <number>0</number>
+    </property>
     <property name="verticalScrollBarPolicy">
      <enum>Qt::ScrollBarAlwaysOff</enum>
     </property>
@@ -66,6 +69,9 @@
     <property name="lineWrapMode">
      <enum>QPlainTextEdit::NoWrap</enum>
     </property>
+    <property name="textInteractionFlags">
+     <set>Qt::TextEditorInteraction</set>
+    </property>
     <property name="placeholderText">
      <string>Enter your nickname</string>
     </property>
@@ -76,7 +82,7 @@
       <x>355</x>
       <y>5</y>
       <width>51</width>
-      <height>27</height>
+      <height>28</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -118,7 +124,7 @@
      <string/>
     </property>
     <property name="icon">
-     <iconset>
+     <iconset resource="res.qrc">
       <normaloff>:/icons/icons/send.png</normaloff>:/icons/icons/send.png</iconset>
     </property>
     <property name="iconSize">
@@ -144,7 +150,7 @@
      <string/>
     </property>
     <property name="icon">
-     <iconset>
+     <iconset resource="res.qrc">
       <normaloff>:/icons/icons/attachment.png</normaloff>:/icons/icons/attachment.png</iconset>
     </property>
     <property name="iconSize">

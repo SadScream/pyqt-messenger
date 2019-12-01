@@ -125,7 +125,7 @@ class Main(Json_handler):
 
 					found = self.searchNickname(event[3])
 
-					if not found:
+					if found == False:
 						super().upload("nick", event[3], event[2])
 
 						for user in self.clients:
@@ -140,6 +140,10 @@ class Main(Json_handler):
 											None]
 
 							user.send(pickle.dumps(loaded))
+					else:
+						for user in self.clients:
+							if user == client:
+								user.send(pickle.dumps([event[0], "", False]))
 
 
 				elif event[0] == "GET_HASH":

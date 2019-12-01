@@ -34,7 +34,7 @@ class Ui_MainWindow(object):
 		self.centralwidget = QtWidgets.QWidget(MainWindow)
 		self.centralwidget.setObjectName("centralwidget")
 		self.enterNick = PlainNickName(self.centralwidget)
-		self.enterNick.setGeometry(QtCore.QRect(5, 5, 345, 27))
+		self.enterNick.setGeometry(QtCore.QRect(5, 5, 345, 28))
 		self.enterNick.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
 		self.enterNick.setAcceptDrops(False)
 		self.enterNick.setStyleSheet("QPlainTextEdit {border: none;background: qlineargradient(spread:pad, angle:135, x1:0, y1:0, x2:1, y2:0, stop: 0 rgba(79,98,161,1), stop: 0.65 rgba(155,46,217,1));font-size:16px;font-weight: bold;font-family:\"Calibri\"}")
@@ -45,7 +45,7 @@ class Ui_MainWindow(object):
 		self.enterNick.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
 		self.enterNick.setObjectName("enterNick")
 		self.confirmNick = QtWidgets.QPushButton(self.centralwidget)
-		self.confirmNick.setGeometry(QtCore.QRect(355, 5, 51, 27))
+		self.confirmNick.setGeometry(QtCore.QRect(355, 5, 51, 28))
 		self.confirmNick.setStyleSheet("QPushButton {background-color: rgb(212, 212, 212);font-size: 13px;border: none;}QPushButton:hover {background-color: rgb(227, 227, 227);}")
 		self.confirmNick.setObjectName("confirmNick")
 		self.message = PlainMessage(self.centralwidget)
@@ -96,12 +96,13 @@ class PlainNickName(QtWidgets.QPlainTextEdit):
 
 	def __init__(self, parent):
 		super().__init__(parent)
+		self.blockCountChanged.connect(self.aaa)
 
 	def keyPressEvent(self, e):
 		n = 13 # максимальное число символов в строке
 
 		if e.key() == 16777220: # enter
-			e.ignore()
+			window.confirmNick.clicked.emit()
 		elif e.key() == 86 and e.modifiers() == QtCore.Qt.ControlModifier: # ctrl + v
 			super().keyPressEvent(e)
 			text = self.toPlainText()
@@ -119,6 +120,10 @@ class PlainNickName(QtWidgets.QPlainTextEdit):
 			else:
 				super().keyPressEvent(e)
 
+	def aaa(self):
+		print("aaaaaa")
+		print(len(self.toPlainText()))
+
 
 class PlainMessage(QtWidgets.QPlainTextEdit):
 
@@ -133,18 +138,20 @@ class PlainMessage(QtWidgets.QPlainTextEdit):
 
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
-	SIGNAL = QtCore.pyqtSignal()
+	HASH_SIGNAL = QtCore.pyqtSignal()
+	NICK_SIGNAL = QtCore.pyqtSignal()
 
 	def __init__(self):
 		super().__init__()
 		self.setupUi(self)
+		self.constructor()
 
 		self.HASH_UNCONFIRMED = False
+		self.NICK_EXISTS = False
 		self.th = Thread(target=self.listen_server, args=(s,))
 		self.th.start()
 
 		self.message.setFocus()
-		self.constructor()
 		self.show()
 
 	def constructor(self):
@@ -155,14 +162,13 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.new_nickname = None
 
 		self.hash_handler(self.hash)
-
-		if self.nickname != "Client":
-			self.enterNick.insertPlainText(self.nickname)
+		self.enterNick.insertPlainText(self.nickname)
 
 		self.enterNick.setTabStopDistance(4.0)
 		self.message.setTabStopDistance(4.0)
 
-		self.SIGNAL.connect(self.message_)
+		self.HASH_SIGNAL.connect(self.message_)
+		self.NICK_SIGNAL.connect(self.message_)
 		self.confirmNick.clicked.connect(self.nickname_handler)
 		self.direct.clicked.connect(self.message_handler)
 
@@ -175,12 +181,18 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		return strftime("%H:%M:%S", localtime())
 
 
-	def message_(self):
-		self.th.join()
+	def message_(self, text_ = False):
 		text = ""
 
 		if self.HASH_UNCONFIRMED:
 			text = "Invalid user"
+		elif self.NICK_EXISTS:
+			text = "This nickname already exists"
+			self.enterNick.setPlainText(self.nickname)
+			self.enterNick.moveCursor(QtGui.QTextCursor.End)
+			self.NICK_EXISTS = False
+		elif text_:
+			text = text_
 
 		self.show_message = QtWidgets.QMessageBox(self)
 		icon = QtGui.QIcon()
@@ -191,9 +203,11 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.show_message.setWindowTitle("Информация")
 		ok = self.show_message.exec_()
 
-		if ok:
+		if ok and self.HASH_UNCONFIRMED:
+			self.send(DISCONNECT, self.nickname)
+			self.th.join()
 			s.close()
-			self.destroy()
+			self.close()
 
 
 	def hash_handler(self, arg):
@@ -204,9 +218,10 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 	def closeEvent(self, evnt):
-		self.send(DISCONNECT, self.nickname)
-		self.th.join()
-		s.close()
+		if not self.HASH_UNCONFIRMED:
+			self.send(DISCONNECT, self.nickname)
+			self.th.join()
+			s.close()
 		evnt.accept()
 
 
@@ -217,6 +232,8 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 			if len(self.new_nickname) > 3:
 				if self.new_nickname != self.nickname:
 					self.send(NICK, self.time(), self.nickname, self.new_nickname)
+				else:
+					self.message_("This is already your nickname")
 
 
 	def message_handler(self):
@@ -230,6 +247,8 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 	def listen_server(self, sock):
+		
+
 		while True:
 			# try:
 			data = pickle.loads(sock.recv(512))
@@ -244,15 +263,18 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 					
 				elif data[1] == "UNCONFIRMED":
 					self.HASH_UNCONFIRMED = True
-					self.SIGNAL.emit()
-					self.send(DISCONNECT, self.nickname)
+					self.HASH_SIGNAL.emit()
 
 			elif data[0] == NICK:
-				if data[2]:
+				if data[2] == True:
 					self.nickname = self.new_nickname
 					config.write("nickname", self.new_nickname)
-
-				self.chat.append(data[1])
+					self.chat.append(data[1])
+				elif data[2] == False:
+					self.NICK_EXISTS = True
+					self.NICK_SIGNAL.emit()
+				else:
+					self.chat.append(data[1])
 
 			elif data[0] == DISCONNECT:
 				if data[1] == "[SELF]":
