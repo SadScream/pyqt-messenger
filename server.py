@@ -84,95 +84,101 @@ class Main(Json_handler):
 				self.threads[-1].start()
 				
 	def sender_handler(self, client, addr):
-		while True:
-			if self.quit:
-				break
+		try:
+			while True:
+				if self.quit:
+					break
 
-			try:
 				event = pickle.loads(client.recv(4096)) # ждем отправки на сервер пакетов
 				
 				itsatime = time.strftime("%Y-%m-%d. . .%H:%M:%S", time.localtime())
 				info = (f"[{addr[0]}]=[{str(addr[1])}]=[{itsatime}]")
 
-
-				if event[0] == "FLAG_01":
+				if event[0] == "CONNECTED":
 					print(info + "/user_connected")
 
 					for user in self.clients:
 						if user == client:
-							loaded = ["CONNECTED", "[You are connected.]"]
-							user.send(pickle.dumps(loaded))
+							loaded = [event[0], "[You are connected.]"]
 						elif user != client:
-							loaded = ["CONNECTED", f"[{event[1]} connected.]"]
-							user.send(pickle.dumps(loaded))
+							loaded = [event[0], f"[{event[1]} connected.]"]
+
+						user.send(pickle.dumps(loaded))
 
 
-				elif event[0] == "FLAG_02":
+				elif event[0] == "DISCONNECTED":
 					print(info + "/user_disconnected")
 
 					for user in self.clients:
 						if user != client:
-							loaded = ["DISCONNECTED", f"[{event[1]} disconnected.]"]
-							user.send(pickle.dumps(loaded))
+							loaded = [event[0], f"[{event[1]} disconnected.]"]
 						elif user == client:
-							loaded = ["DISCONNECTED", f"[SELF]"]
-							user.send(pickle.dumps(loaded))
+							loaded = [event[0], f"[SELF]"]
+
+						user.send(pickle.dumps(loaded))
 
 					self.clients.remove(client)
 
 
-				elif event[0] == "FLAG_03":
+				elif event[0] == "NICK_CHANGED":
 					print(info + "/shanged_nick")
 
-					checker = self.searchNickname(event[3])
+					found = self.searchNickname(event[3])
 
-					if checker:
+					if not found:
 						super().upload("nick", event[3], event[2])
 
 						for user in self.clients:
 							if user == client:
-								loaded = ["NICK", f"[{event[1]}]  [Your nickname now is {event[3]}]", checker]
-								user.send(pickle.dumps(loaded))
+								loaded = [event[0],
+											f"[{event[1]}]  [Your nickname now is {event[3]}]",
+											True]
+
 							elif user != client:
-								loaded = ["NICK", f"[{event[1]}]  [{event[2]} nickname now is {event[3]}]", None]
-								user.send(pickle.dumps(loaded))
+								loaded = [event[0],
+											f"[{event[1]}]  [{event[2]} nickname now is {event[3]}]",
+											None]
+
+							user.send(pickle.dumps(loaded))
 
 
-				elif event[0] == "FLAG_04":
+				elif event[0] == "GET_HASH":
 					generated = str(hashlib.md5((str(addr)+str(event[2])).encode("utf-8")).hexdigest())
-					loaded = ["HASH", generated]
-					client.send(pickle.dumps(loaded))
+					client.send(pickle.dumps([event[0], generated]))
 					super().upload("hashes", event[1], generated)
 
 
-				elif event[0] == "FLAG_05":
+				elif event[0] == "CHECK_HASH":
 					users_hash = super().download("hashes")
+					confirmed = False
 
-					is_ok = False
 					for item in users_hash:
+						if confirmed:
+							break
+
 						for k, v in item.items():
 							if v == event[1]:
-								loaded = ["HASH_CONFIRMED" , "OK"]
-								client.send(pickle.dumps(loaded))
-								is_ok = True
-					if not is_ok:
-						loaded = ["HASH_CONFIRMED", "UNKNOWN"]
-						client.send(pickle.dumps(loaded))
+								confirmed = True
+								break
+
+					if confirmed:
+						client.send(pickle.dumps([event[0], "CONFIRMED"]))
+					else:
+						client.send(pickle.dumps([event[0], "UNCONFIRMED"]))
 
 
-				elif event[0] == "FLAG_06":
+				elif event[0] == "MESSAGE":
 					print(info + "/new_message")
 
 					for user in self.clients:
 						if user != client:
-							loaded = ["MESSAGE", f"[{event[1]}]  {event[2]}: {event[3]}"]
-							user.send(pickle.dumps(loaded))
+							loaded = [event[0], f"[{event[1]}]  {event[2]}: {event[3]}"]
 						elif user == client:
-							loaded = ["MESSAGE", f"[{event[1]}]  You: {event[3]}"]
-							user.send(pickle.dumps(loaded))
-
-			except:
-				return
+							loaded = [event[0], f"[{event[1]}]  You: {event[3]}"]
+						
+						user.send(pickle.dumps(loaded))
+		except:
+			return
 
 
 	def searchNickname(self, toCheck): # потом
@@ -185,9 +191,9 @@ class Main(Json_handler):
 
 		for n in nicks:
 			if n == toCheck:
-				return False
+				return True
 
-		return True
+		return False
 
 if __name__ == '__main__':
 	Main()

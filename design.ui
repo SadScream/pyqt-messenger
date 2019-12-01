@@ -26,7 +26,7 @@
    <string>SadGram</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="res.qrc">
+   <iconset>
     <normaloff>:/icons/icons/chat.png</normaloff>:/icons/icons/chat.png</iconset>
   </property>
   <property name="styleSheet">
@@ -118,7 +118,7 @@
      <string/>
     </property>
     <property name="icon">
-     <iconset resource="res.qrc">
+     <iconset>
       <normaloff>:/icons/icons/send.png</normaloff>:/icons/icons/send.png</iconset>
     </property>
     <property name="iconSize">
@@ -144,7 +144,7 @@
      <string/>
     </property>
     <property name="icon">
-     <iconset resource="res.qrc">
+     <iconset>
       <normaloff>:/icons/icons/attachment.png</normaloff>:/icons/icons/attachment.png</iconset>
     </property>
     <property name="iconSize">

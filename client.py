@@ -10,12 +10,12 @@ from threading import Thread
 import JsonHandler
 
 
-CONNECTED = "FLAG_01"
-DISCONNECTED = "FLAG_02"
-NICK_CHANGED = "FLAG_03"
-GET_HASH = "FLAG_04"
-CHECK_HASH = "FLAG_05"
-MESSAGE = "FLAG_06"
+CONNECT = "CONNECTED"
+DISCONNECT = "DISCONNECTED"
+NICK = "NICK_CHANGED"
+GET = "GET_HASH"
+CHECK = "CHECK_HASH"
+MSG = "MESSAGE"
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect(("192.168.56.1", 11719))
@@ -133,12 +133,16 @@ class PlainMessage(QtWidgets.QPlainTextEdit):
 
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
+	SIGNAL = QtCore.pyqtSignal()
 
 	def __init__(self):
 		super().__init__()
 		self.setupUi(self)
+
+		self.HASH_UNCONFIRMED = False
 		self.th = Thread(target=self.listen_server, args=(s,))
 		self.th.start()
+
 		self.message.setFocus()
 		self.constructor()
 		self.show()
@@ -150,17 +154,15 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.hash = config.read("hash")
 		self.new_nickname = None
 
-		if self.hash == "new":
-			self.hash = self.hash_handler("new")
-		else:
-			self.hash_handler("confirm")
+		self.hash_handler(self.hash)
 
-		if self.nickname != "Client":   
+		if self.nickname != "Client":
 			self.enterNick.insertPlainText(self.nickname)
 
 		self.enterNick.setTabStopDistance(4.0)
 		self.message.setTabStopDistance(4.0)
 
+		self.SIGNAL.connect(self.message_)
 		self.confirmNick.clicked.connect(self.nickname_handler)
 		self.direct.clicked.connect(self.message_handler)
 
@@ -173,15 +175,36 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		return strftime("%H:%M:%S", localtime())
 
 
+	def message_(self):
+		self.th.join()
+		text = ""
+
+		if self.HASH_UNCONFIRMED:
+			text = "Invalid user"
+
+		self.show_message = QtWidgets.QMessageBox(self)
+		icon = QtGui.QIcon()
+		icon.addPixmap(QtGui.QPixmap(":/icons/icons/chat.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+		self.show_message.setWindowIcon(icon)
+		self.show_message.setIcon(QtWidgets.QMessageBox.Information)
+		self.show_message.setText(text)
+		self.show_message.setWindowTitle("Информация")
+		ok = self.show_message.exec_()
+
+		if ok:
+			s.close()
+			self.destroy()
+
+
 	def hash_handler(self, arg):
 		if arg == "new":
-			self.send(GET_HASH, self.nickname, self.time())
-		elif arg == "confirm":
-			self.send(CHECK_HASH, self.hash)
+			self.send(GET, self.nickname, self.time())
+		else:
+			self.send(CHECK, self.hash)
 
 
 	def closeEvent(self, evnt):
-		self.send(DISCONNECTED, self.nickname)
+		self.send(DISCONNECT, self.nickname)
 		self.th.join()
 		s.close()
 		evnt.accept()
@@ -193,7 +216,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if not (self.new_nickname.isspace()):
 			if len(self.new_nickname) > 3:
 				if self.new_nickname != self.nickname:
-					self.send(NICK_CHANGED, self.time(), self.nickname, self.new_nickname)
+					self.send(NICK, self.time(), self.nickname, self.new_nickname)
 
 
 	def message_handler(self):
@@ -202,46 +225,47 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if not (self.msg.isspace()):
 			if len(self.msg) > 0:
 				self.message.clear()
-				self.send(MESSAGE, self.time(), self.nickname, self.msg)
+				self.send(MSG, self.time(), self.nickname, self.msg)
 				self.message.setFocus()
 
 
 	def listen_server(self, sock):
 		while True:
-			try:
-				data = pickle.loads(sock.recv(4096))
+			# try:
+			data = pickle.loads(sock.recv(512))
 
-				if data[0] == "HASH":
-					config.write("hash", data[1])
+			if data[0] == GET:
+				self.send(CONNECT, self.nickname)
+				config.write("hash", data[1])
 
-				elif data[0] == "HASH_CONFIRMED":
-					if data[1] == "OK":
-						self.send(CONNECTED, self.nickname)
-					elif data[1] == "UNKNOWN":
-						print("unknown")
-						self.shutdown = True
-						self.th.join() 
-						s.close()
-						super().closeEvent()                       
+			elif data[0] == CHECK:
+				if data[1] == "CONFIRMED":
+					self.send(CONNECT, self.nickname)
+					
+				elif data[1] == "UNCONFIRMED":
+					self.HASH_UNCONFIRMED = True
+					self.SIGNAL.emit()
+					self.send(DISCONNECT, self.nickname)
 
-				elif data[0] == "NICK":
-					if data[2] == True:
-						self.nickname = self.new_nickname
-						config.write("nickname", self.new_nickname)
+			elif data[0] == NICK:
+				if data[2]:
+					self.nickname = self.new_nickname
+					config.write("nickname", self.new_nickname)
+
+				self.chat.append(data[1])
+
+			elif data[0] == DISCONNECT:
+				if data[1] == "[SELF]":
+					break
+				else:
 					self.chat.append(data[1])
 
-				elif data[0] == "DISCONNECTED":
-					if data[1] == "[SELF]":
-						break
-					else:
-						self.chat.append(data[1])
+			elif data[0] in [MSG, CONNECT]:
+				self.chat.append(data[1])
 
-				elif data[0] in list(("MESSAGE", "CONNECTED")):
-					self.chat.append(data[1])
-
-			except Exception as E:
-				print("1", E)
-				self.chat.append(f"ERROR: {E}")
+			# except Exception as E:
+			# 	print("1", E)
+			# 	self.chat.append(f"ERROR: {E}")
 
 
 if __name__ == '__main__':
