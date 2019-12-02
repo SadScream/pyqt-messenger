@@ -5,8 +5,10 @@ from json import loads, dumps
 
 
 default = {
-    "nickname": "Client",
-    "hash": "new"
+	"nickname": "",
+	"hash": "new",
+	"ip": "192.168.56.1",
+	"first_time": True
 }
 
 

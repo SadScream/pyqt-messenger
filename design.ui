@@ -33,72 +33,13 @@
    <string notr="true">QMainWindow {background-color: rgb(212, 212, 212);}</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QPlainTextEdit" name="enterNick">
-    <property name="geometry">
-     <rect>
-      <x>5</x>
-      <y>5</y>
-      <width>345</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="contextMenuPolicy">
-     <enum>Qt::NoContextMenu</enum>
-    </property>
-    <property name="acceptDrops">
-     <bool>false</bool>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">QPlainTextEdit {border: none;background: qlineargradient(spread:pad, angle:135, x1:0, y1:0, x2:1, y2:0, stop: 0 rgba(79,98,161,1), stop: 0.65 rgba(155,46,217,1));font-size:16px;font-weight: bold;font-family:&quot;Calibri&quot;}</string>
-    </property>
-    <property name="inputMethodHints">
-     <set>Qt::ImhLatinOnly</set>
-    </property>
-    <property name="lineWidth">
-     <number>0</number>
-    </property>
-    <property name="verticalScrollBarPolicy">
-     <enum>Qt::ScrollBarAlwaysOff</enum>
-    </property>
-    <property name="horizontalScrollBarPolicy">
-     <enum>Qt::ScrollBarAlwaysOff</enum>
-    </property>
-    <property name="sizeAdjustPolicy">
-     <enum>QAbstractScrollArea::AdjustIgnored</enum>
-    </property>
-    <property name="lineWrapMode">
-     <enum>QPlainTextEdit::NoWrap</enum>
-    </property>
-    <property name="textInteractionFlags">
-     <set>Qt::TextEditorInteraction</set>
-    </property>
-    <property name="placeholderText">
-     <string>Enter your nickname</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="confirmNick">
-    <property name="geometry">
-     <rect>
-      <x>355</x>
-      <y>5</y>
-      <width>51</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">QPushButton {background-color: rgb(212, 212, 212);font-size: 13px;border: none;}QPushButton:hover {background-color: rgb(227, 227, 227);}</string>
-    </property>
-    <property name="text">
-     <string>Accept</string>
-    </property>
-   </widget>
    <widget class="QPlainTextEdit" name="message">
     <property name="geometry">
      <rect>
-      <x>5</x>
-      <y>350</y>
+      <x>4</x>
+      <y>317</y>
       <width>361</width>
-      <height>54</height>
+      <height>68</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -111,8 +52,8 @@
    <widget class="QPushButton" name="direct">
     <property name="geometry">
      <rect>
-      <x>371</x>
-      <y>383</y>
+      <x>370</x>
+      <y>364</y>
       <width>35</width>
       <height>21</height>
      </rect>
@@ -137,8 +78,8 @@
    <widget class="QPushButton" name="attachment">
     <property name="geometry">
      <rect>
-      <x>371</x>
-      <y>350</y>
+      <x>370</x>
+      <y>317</y>
       <width>35</width>
       <height>21</height>
      </rect>
@@ -163,10 +104,10 @@
    <widget class="QTextEdit" name="chat">
     <property name="geometry">
      <rect>
-      <x>5</x>
-      <y>38</y>
+      <x>4</x>
+      <y>4</y>
       <width>401</width>
-      <height>307</height>
+      <height>308</height>
      </rect>
     </property>
     <property name="cursor" stdset="0">
@@ -183,6 +124,32 @@
     </property>
    </widget>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>410</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Menu</string>
+    </property>
+    <addaction name="setting"/>
+   </widget>
+   <addaction name="menuSettings"/>
+  </widget>
+  <action name="setting">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/menuBar/icons/settings.png</normaloff>:/menuBar/icons/settings.png</iconset>
+   </property>
+   <property name="text">
+    <string>Settings</string>
+   </property>
+  </action>
  </widget>
  <resources>
   <include location="res.qrc"/>

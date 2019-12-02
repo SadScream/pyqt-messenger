@@ -4,4 +4,7 @@
     <file>icons/send.png</file>
     <file>icons/chat.png</file>
   </qresource>
+  <qresource prefix="menuBar">
+    <file>icons/settings.png</file>
+  </qresource>
 </RCC>

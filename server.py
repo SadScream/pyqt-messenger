@@ -3,6 +3,7 @@ import socket
 import pickle
 import json
 import threading
+from os import listdir
 
 hosted = socket.gethostbyname(socket.gethostname())
 print(hosted)
@@ -16,6 +17,14 @@ print("[ Server Started ]")
 
 
 class Json_handler:
+
+	def __init__(self):
+		listDir = listdir()
+		default = {"hashes": []}
+
+		if "SERVER_DATA.json" not in listDir:
+			with open("SERVER_DATA.json", "w", encoding='utf-8') as file:
+				json.dump(default, file, indent=4, ensure_ascii=False)
 
 	def upload(self, section, key, value=None):
 		self.download(section)
@@ -50,6 +59,7 @@ class Json_handler:
 
 class Main(Json_handler):
 	def __init__(self):
+		super().__init__()
 		self.quit = False
 		self.clients = []
 		self.threads = []
