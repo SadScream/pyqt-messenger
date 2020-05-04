@@ -5,7 +5,7 @@ import res_rc
 
 import fix_qt_import_error
 from PyQt5 import QtCore, QtGui, QtWidgets
-from time import strftime, localtime
+from time import strftime, localtime, time, sleep
 from threading import Thread
 
 import JsonHandler
@@ -18,10 +18,9 @@ GET = "GET_HASH"
 CHECK = "CHECK_HASH"
 MSG = "MESSAGE"
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s.connect(("192.168.56.1", 11719))
 
 
+# -------------------------------------------------------------------------------
 class Ui_Dialog(object):
 	def setupUi(self, Dialog):
 		Dialog.setObjectName("Dialog")
@@ -146,7 +145,7 @@ class Ui_MainWindow(object):
 		self.message.setPlaceholderText(_translate("MainWindow", "Enter your message"))
 		self.menuSettings.setTitle(_translate("MainWindow", "Menu"))
 		self.setting.setText(_translate("MainWindow", "Settings"))
-# --
+# -------------------------------------------------------------------------------
 
 
 
@@ -197,13 +196,13 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 
 		if text:
 			self.valid_settings = False
-			window.message_(text)
+			window.info_window(text)
 		else:
 			if not result:
 				self.valid_settings = False
-				window.message_("Invalid IP or nickname. Remember: your new nickname should: " \
-									"doesn't consist of spaces, " \
-									"been longer than 3 syms")
+				window.info_window("Invalid IP or nickname. Remember, your new nickname should not to: " \
+																				"consists of spaces, " \
+																				"been shorter than 3 syms")
 			elif result:
 				if name != window.nickname:
 					config.write("nickname", self.nicknameLine.text())
@@ -212,9 +211,21 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 				self.valid_settings = True
 
 
+	def closeEvent(self, evnt):
+		if window.th != None and window.th.is_alive():
+			self.nicknameLine.setText(config.read("nickname"))
+			self.ipLine.setText(config.read("ip"))
+			evnt.accept()
+		else:
+			return sys.exit(0)
+
+
 	def close_(self):
-		self.nicknameLine.setText(config.read("nickname"))
-		self.ipLine.setText(config.read("ip"))
+		if window.th != None and window.th.is_alive():
+			self.nicknameLine.setText(config.read("nickname"))
+			self.ipLine.setText(config.read("ip"))
+		else:
+			self.valid_settings = False
 
 
 	def fields_is_correct(self, name, ip):
@@ -228,37 +239,65 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 			return (False, False)
 
 		elif res_ip and not res_name:
-			return ("Error. Your new nickname should: " \
-								"not consist of spaces, " \
-								"been longer than 3 syms", None)
+			return ("Error. Your new nickname should not to: " \
+										"consists of spaces, " \
+										"been shorter than 3 syms", None)
 		
 		elif not res_ip and res_name:
 			return ("Invalid IP", None)
 
+
 	def check_ip(self, ip):
 		if ip == "127.0.0.1":
 			return False
-		elif ip == window.server_ip:
-			return True
+		# elif ip == window.server_ip:
+		# 	return True
 		else:
 			try:
-				s.connect((ip, 11719))
-				window.th = Thread(target=window.listen_server, args=(s,))
+				print(f"[{self.check_ip.__name__}]: sock._closed = {window.sock._closed}")
+
+				if not window.sock._closed:
+					try:
+						window.send(DISCONNECT, window.nickname)
+					except Exception as error:
+						print(f"\n[EXCEPTION AT '{self.check_ip.__name__}']: filed to disconnect `{error}`\n")
+						pass
+
+					while window.listening_active:
+						continue
+
+					window.sock.close()
+					window.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+				status = try_to_connect(ip)
+
+				if not status:
+					return False
+
+				window.th = Thread(target=window.listen_server, args=(window.sock,))
 				window.th.start()
 
 				config.write("nickname", self.nicknameLine.text())
 				config.write("ip", ip)
+
 				window.read_config()
 				window.hash_handler(window.hash)
+
 				return True
-			except:
+
+			except Exception as error:
+				print(f"\n[EXCEPTION AT '{self.check_ip.__name__}']: presumably failed to start the thread `{error}\n\t`IP `{ip}`\n")
+
+				if ("WinError 10056" in str(error)):
+					return True
+
 				return False
 
 	def check_name(self, nickname):
-		if not nickname.isspace():
-			if len(nickname) > 3:
-				return True
-		return False
+		if not nickname.isspace() and len(nickname) > 3:
+			return True
+		else:	
+			return False
 
 	def fields_filler(self, name="", ip="127.0.0.1"):
 		self.nicknameLine.setText(name)
@@ -272,7 +311,9 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 	def __init__(self):
 		super().__init__()
 		self.setupUi(self)
-
+		self.listening_active = False
+		self.th = None
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.settings = Settings()
 		self.HASH_UNCONFIRMED = False
 		self.NICK_EXISTS = False
@@ -284,32 +325,51 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		self.settings.fields_filler(self.nickname, self.server_ip) # class
 		self.setting.triggered.connect(self.generateSettingsWindow) # button
-		self.HASH_SIGNAL.connect(self.message_)
-		self.NICK_SIGNAL.connect(self.message_)
+
+		self.HASH_SIGNAL.connect(self.info_window)
+		self.NICK_SIGNAL.connect(self.info_window)
 		self.direct.clicked.connect(self.message_handler)
 
 		first_time = config.read("first_time")
-		self.th = Thread(target=self.listen_server, args=(s,))
+		# self.th = Thread(target=self.listen_server, args=(self.sock,))
 
 		if first_time:
 			self.setting.triggered.emit()
 			config.write("first_time", False)
 		else:
-			s.connect((self.server_ip, 11719))
+			status = try_to_connect(self.server_ip)
+
+			if not status:
+				self.setting.triggered.emit()
+
+		print(f"[{self.constructor.__name__}]: preparing to get/check hash")
+		
+		if self.th == None:
+			self.th = Thread(target=window.listen_server, args=(window.sock,))
 			self.th.start()
-			self.hash_handler(self.hash)
+
+		self.hash_handler(self.hash)
+		print(f"[{self.constructor.__name__}]: hash confirmed.\tHASH: `{self.hash}`")
 
 		self.message.setFocus()
+		print(f"[{self.constructor.__name__}]: preparing to show window")
 		self.show()
 
 	def generateSettingsWindow(self):
+		print(f"[{self.generateSettingsWindow.__name__}]: preparing to create `Settings` window")
 		self.settings.valid_settings = None
 		self.settings.exec_()
+
+		print(f"[{self.generateSettingsWindow.__name__}]: self.settings.valid_settings = {self.settings.valid_settings}")
 
 		if self.settings.valid_settings == False:
 			self.generateSettingsWindow()
 
 	def read_config(self, nickname = False, hash_ = False, ip = False):
+		'''
+		читаем либо что-то конкретное, либо все сразу
+		'''
+
 		if nickname:
 			self.nickname = config.read("nickname")
 		if hash_:
@@ -322,43 +382,52 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 			self.hash = config.read("hash")
 			self.server_ip = config.read("ip")
 
-	def send(self, *sequence):
-		s.send(pickle.dumps([var for var in sequence])) # s - socket
-
 	def time(self):
 		return strftime("%H:%M:%S", localtime())
 
-	def message_(self, text_ = False):
+	def info_window(self, text_ = False):
+		'''
+		вызов окна с определенным сообщением
+		'''
+
 		text = ""
 
-		if self.HASH_UNCONFIRMED:
-			text = "Invalid user"
-		elif self.NICK_EXISTS:
-			text = "This nickname already exists"
-		elif text_:
+		if not text_:
+			if self.HASH_UNCONFIRMED:
+				text = "Invalid user"
+			elif self.NICK_EXISTS:
+				text = "This nickname already exists"
+		else:
 			text = text_
 
 		self.show_message = QtWidgets.QMessageBox(self)
+
 		icon = QtGui.QIcon()
 		icon.addPixmap(QtGui.QPixmap(":/icons/icons/chat.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+
 		self.show_message.setWindowIcon(icon)
 		self.show_message.setIcon(QtWidgets.QMessageBox.Information)
 		self.show_message.setText(text)
 		self.show_message.setWindowTitle("Информация")
+
 		ok = self.show_message.exec_()
 
 		if ok and self.HASH_UNCONFIRMED:
 			self.send(DISCONNECT, self.nickname)
 			self.th.join()
-			s.close()
+			self.sock.close()
 			self.close()
+
 		elif ok and self.NICK_EXISTS:
-			self.nickname = ""
-			self.message_("Nickname already exists")
+			self.info_window("Nickname already exists")
 			self.NICK_EXISTS = False
 			self.setting.triggered.emit()
 
 	def hash_handler(self, arg):
+		'''
+		получение/проверка хэша
+		'''
+
 		if arg == "new":
 			self.send(GET, self.nickname, self.time())
 		else:
@@ -367,23 +436,46 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 	def closeEvent(self, evnt):
 		if not self.HASH_UNCONFIRMED:
 			self.send(DISCONNECT, self.nickname)
-			self.th.join()
-			s.close()
+			# self.th.join()
+			self.sock.close()
+
 		evnt.accept()
 
 	def message_handler(self):
+		'''
+		функция для отправки сообщений
+		'''
+		
 		self.msg = self.message.toPlainText()
 
 		if not (self.msg.isspace()):
 			if len(self.msg) > 0:
+				print(f"[{self.message_handler.__name__}]: trying to send message...", end="")
+
 				self.message.clear()
 				self.send(MSG, self.time(), self.nickname, self.msg)
 				self.message.setFocus()
 
+				print(f"message sent")
+
+	def send(self, *sequence):
+		# if sock == None:
+		self.sock.send(pickle.dumps([var for var in sequence])) # s - socket
+		# else:
+		# 	sock.send(pickle.dumps([var for var in sequence]))
+
 	def listen_server(self, sock):
+		print(f"[{self.listen_server.__name__}]: starting to listening server...")
 		while True:
 			try:
+				self.listening_active = True
+				# if self.sock != sock:
+				# 	self.send(DISCONNECT, self.nickname, sock=sock)
+				# 	break
+
 				data = pickle.loads(sock.recv(512))
+
+				print(f"[{self.listen_server.__name__}]: recieved data `{data[0]}`")
 
 				if data[0] == GET:
 					self.send(CONNECT, self.nickname)
@@ -408,6 +500,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 				elif data[0] == DISCONNECT:
 					if data[1] == "[SELF]":
+						self.listening_active = False
 						break
 					else:
 						self.chat.append(data[1])
@@ -416,8 +509,56 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 					self.chat.append(data[1])
 
 			except Exception as E:
-				print("1", E)
-				self.chat.append(f"ERROR: {E}")
+				print(f"\n[EXCEPTION AT '{self.listen_server.__name__}']: while trying to receive data {E}\n")
+
+				if ("[WinError 10053]" not in str(E)):
+					self.chat.append(f"ERROR: {E}")
+
+				self.listening_active = False
+				break
+
+
+def try_to_connect(ip):
+	'''
+	функция для проверки возможности подключения к указанному пользователем айпи адресу
+	если при подключении к сокету и отправке на него ключевого слова `CONFIRM_CONNECTION` в течение 3-х секунд не придет ответа, содержащего ключевое слово`CONFIRMED`
+	то айпи адрес считается неверным
+	'''
+
+	try:
+		print(f"[{try_to_connect.__name__}]: connection")
+		window.sock.connect((ip, 11719))
+	except Exception as error:
+		print(f"\n[EXCEPTION AT '{try_to_connect.__name__}']: while trying to connect to socket `{error}`\n")
+		return False
+
+	print(f"[{try_to_connect.__name__}]: connection established vrode")
+
+	sleep(3)
+	t0 = time()
+	data = None
+
+	print(f"[{try_to_connect.__name__}]: preparing to sent HELLO")
+	window.sock.send(pickle.dumps(["`CONFIRM_CONNECTION`"]))
+	print(f"[{try_to_connect.__name__}]: HELLO sent. Starting waiting for reply")
+
+	while True:
+		t1 = time()
+
+		if ((t1 - t0) > 3):
+			print(f"[{try_to_connect.__name__}]: 3 seconds passed, breaking...")
+			return False
+
+		try:
+			data = pickle.loads(window.sock.recv(512))
+
+			if data:
+				if data[0] == "`CONFIRMED`":
+					print(f"[{try_to_connect.__name__}]: gettings reply...confirmed")
+					return True
+		except Exception as E:
+			print(f"\n[EXCEPTION AT '{try_to_connect.__name__}']: while trying to recieve data `{E}`\n")
+			continue
 
 
 if __name__ == '__main__':

@@ -20,7 +20,7 @@ class JsonHandler:
 
 
 	def read(self, field = None):
-		with open("DATA.json", "r+", encoding="utf-8") as file:
+		with open("config.json", "r+", encoding="utf-8") as file:
 			data = loads(file.read())
 
 		if field is not None and field in data:
@@ -46,7 +46,7 @@ class JsonHandler:
 				else:
 					data[field] = value
 
-			with open("DATA.json", "w", encoding="utf-8") as file:
+			with open("config.json", "w", encoding="utf-8") as file:
 				file.write(dumps(data, ensure_ascii=False, indent=4))
 
 
@@ -73,22 +73,22 @@ class JsonHandler:
 				else:
 					data[field] = value
 
-			with open("DATA.json", "w", encoding="utf-8") as file:
+			with open("config.json", "w", encoding="utf-8") as file:
 				file.write(dumps(data, ensure_ascii=False, indent=4))
 
 
 	def generateConfig(self):
 		listDir = listdir(getcwd())
 
-		if "DATA.json" not in listDir:	
-			with open("DATA.json", "w", encoding="utf-8") as file:
+		if "config.json" not in listDir:	
+			with open("config.json", "w", encoding="utf-8") as file:
 				file.write(dumps(self.default, ensure_ascii=False, indent=4))
 
-		elif "DATA.json" in listDir:
+		elif "config.json" in listDir:
 			data = self.read()
 
 			for k, v in self.default.items():
 				if k not in data:
-					with open("DATA.json", "w", encoding="utf-8") as file:
+					with open("config.json", "w", encoding="utf-8") as file:
 						file.write(dumps(self.default, ensure_ascii=False, indent=4))
 						return

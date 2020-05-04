@@ -13,6 +13,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((hosted,port))
 s.listen(3)
 
+
 print("[ Server Started ]")
 
 
@@ -84,14 +85,15 @@ class Main(Json_handler):
 
 			try:
 				client, addr = sock.accept()
-				print(f"Соединение с {addr} установлено")
+				print(f"Connection with {addr} established")
 			except:
 				return
 
 			if client not in self.clients:
 				self.clients.append(client)
-				self.threads.append(threading.Thread(target=self.sender_handler, args=(client, addr)))
-				self.threads[-1].start()
+				self.threads.append([threading.Thread(target=self.sender_handler, args=(client, addr)), client])
+				self.threads[-1][0].start()
+				# print(f"\n[{self.connection_handler.__name__}] new client added\nclient: {self.clients}\nthreads: {self.threads}\n")
 				
 	def sender_handler(self, client, addr):
 		try:
@@ -104,7 +106,14 @@ class Main(Json_handler):
 				itsatime = time.strftime("%Y-%m-%d. . .%H:%M:%S", time.localtime())
 				info = (f"[{addr[0]}]=[{str(addr[1])}]=[{itsatime}]")
 
-				if event[0] == "CONNECTED":
+				if event[0] == "`CONFIRM_CONNECTION`":
+					for user in self.clients:
+						if user == client:
+							loaded = ["`CONFIRMED`"]
+							user.send(pickle.dumps(loaded))
+							break			
+
+				elif event[0] == "CONNECTED":
 					print(info + "/user_connected")
 
 					for user in self.clients:
@@ -122,12 +131,22 @@ class Main(Json_handler):
 					for user in self.clients:
 						if user != client:
 							loaded = [event[0], f"[{event[1]} disconnected.]"]
+							# user.send(pickle.dumps(loaded))
 						elif user == client:
 							loaded = [event[0], f"[SELF]"]
 
 						user.send(pickle.dumps(loaded))
+					
+					index = 0
 
-					self.clients.remove(client)
+					for (i, item) in enumerate(self.threads):
+						if item[1] == client:
+							index = i
+							break
+
+					self.clients.pop(index)
+					self.threads.pop(index)
+					return
 
 
 				elif event[0] == "NICK_CHANGED":
