@@ -137,11 +137,11 @@
     <property name="title">
      <string>Menu</string>
     </property>
-    <addaction name="setting"/>
+    <addaction name="settingButton"/>
    </widget>
    <addaction name="menuSettings"/>
   </widget>
-  <action name="setting">
+  <action name="settingButton">
    <property name="icon">
     <iconset resource="res.qrc">
      <normaloff>:/menuBar/icons/settings.png</normaloff>:/menuBar/icons/settings.png</iconset>

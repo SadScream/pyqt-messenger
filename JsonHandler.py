@@ -7,7 +7,7 @@ from json import loads, dumps
 default = {
 	"nickname": "",
 	"hash": "new",
-	"ip": "192.168.56.1",
+	"ip": "127.0.0.1",
 	"first_time": True
 }
 

@@ -85,11 +85,12 @@ class Main(Json_handler):
 
 			try:
 				client, addr = sock.accept()
-				print(f"Connection with {addr} established")
+				print(f"Connection with {addr} established.", end=" ")
 			except:
 				return
 
 			if client not in self.clients:
+				print("Adding new client")
 				self.clients.append(client)
 				self.threads.append([threading.Thread(target=self.sender_handler, args=(client, addr)), client])
 				self.threads[-1][0].start()
@@ -129,7 +130,7 @@ class Main(Json_handler):
 					print(info + "/user_disconnected")
 
 					for user in self.clients:
-						if user != client:
+						if user != client and event[1] != "":
 							loaded = [event[0], f"[{event[1]} disconnected.]"]
 							# user.send(pickle.dumps(loaded))
 						elif user == client:
@@ -137,12 +138,14 @@ class Main(Json_handler):
 
 						user.send(pickle.dumps(loaded))
 					
-					index = 0
+					# index = 0
 
-					for (i, item) in enumerate(self.threads):
-						if item[1] == client:
-							index = i
-							break
+					# for (i, item) in enumerate(self.clients):
+					# 	if item[1] == client:
+					# 		index = i
+					# 		break
+
+					index = self.clients.index(client)
 
 					self.clients.pop(index)
 					self.threads.pop(index)
@@ -152,7 +155,7 @@ class Main(Json_handler):
 				elif event[0] == "NICK_CHANGED":
 					print(info + "/shanged_nick")
 
-					found = self.searchNickname(event[3])
+					found = self.searchNickname(event[3], event[4])
 
 					if found == False:
 						super().upload("nick", event[3], event[2])
@@ -163,7 +166,7 @@ class Main(Json_handler):
 											f"[{event[1]}]  [Your nickname now is {event[3]}]",
 											True]
 
-							elif user != client:
+							elif user != client and event[2] != "":
 								loaded = [event[0],
 											f"[{event[1]}]  [{event[2]} nickname now is {event[3]}]",
 											None]
@@ -214,17 +217,19 @@ class Main(Json_handler):
 			return
 
 
-	def searchNickname(self, toCheck): # потом
+	def searchNickname(self, toCheck, user_hash): # потом
+		'''
+		возвращаемые значения:
+		true: если никнейм уже принадлежит другому пользователю
+		false: в ином случае
+		'''
+
 		loading = super().download("hashes")
-		nicks = []
 
 		for n in loading:
 			for k, v in n.items():
-				nicks.append(k)
-
-		for n in nicks:
-			if n == toCheck:
-				return True
+				if k == toCheck and v != user_hash:
+					return True
 
 		return False
 
