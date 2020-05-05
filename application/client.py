@@ -1,7 +1,9 @@
-import fix_qt_import_error
+# -*- coding: utf-8 -*-
+# python v. 3.6.1
 
+from extra import fix_qt_import_error
+from extra import JsonHandler
 import res_rc
-import JsonHandler
 
 import sys
 import pickle
@@ -10,7 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from time import strftime, localtime, sleep
 from threading import Thread
 
-from connection import *
+from extra.connection import *
 
 
 CONNECT =    "CONNECTED"
