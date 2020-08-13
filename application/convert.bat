@@ -1,3 +1,3 @@
-pyuic5 design.ui -o design.py
-pyuic5 settings.ui -o settings.py
-pyrcc5 res.qrc -o res_rc.py
+pyside2-uic design.ui -o design.py
+pyside2-uic settings.ui -o settings.py
+pyside2-rcc res.qrc -o res_rc.py

@@ -8,12 +8,11 @@ import res_rc
 import sys
 import pickle
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 from time import strftime, localtime, sleep
 from threading import Thread
 
 from extra.connection import *
-
 
 CONNECT =    "CONNECTED"
 DISCONNECT = "DISCONNECTED"
@@ -453,7 +452,7 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
-	HASH_SIGNAL = QtCore.pyqtSignal()
+	HASH_SIGNAL = QtCore.Signal()
 
 	def __init__(self):
 		super().__init__()
@@ -706,4 +705,4 @@ if __name__ == '__main__':
 	app = QtWidgets.QApplication(sys.argv)
 	window = App()
 	window.constructor()
-	sys.exit(app.exec_())
+	app.exec_()
