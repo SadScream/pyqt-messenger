@@ -137,13 +137,6 @@ class Main(Json_handler):
 							loaded = [event[0], f"[SELF]"]
 
 						user.send(pickle.dumps(loaded))
-					
-					# index = 0
-
-					# for (i, item) in enumerate(self.clients):
-					# 	if item[1] == client:
-					# 		index = i
-					# 		break
 
 					index = self.clients.index(client)
 
