@@ -92,17 +92,17 @@ font-size: 13px;
       </widget>
      </item>
      <item row="1" column="0">
-      <widget class="QLabel" name="ipLabel">
+      <widget class="QLabel" name="hostLabel">
        <property name="styleSheet">
         <string notr="true"/>
        </property>
        <property name="text">
-        <string>Server IP</string>
+        <string>Host</string>
        </property>
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QLineEdit" name="ipLine">
+      <widget class="QLineEdit" name="hostLine">
        <property name="acceptDrops">
         <bool>false</bool>
        </property>

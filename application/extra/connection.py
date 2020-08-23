@@ -1,115 +1,84 @@
-from time import sleep, time
-from threading import Thread
-
-import pickle
-import socket
+import requests
 
 
-class Connection:
+class Server:
+	def __init__(self, window):
+		self.window = window
+		self.connected = False
+		self.host = None
 
-	def __init__(self, ip = False, port = False):
-		self.ip = ip
-		self.port = 11719
+		self.methods = [
+                    "user.getUsernames",
+					"user.check", "user.getid",
+                	"user.connect", "user.disconnect",
+					"user.rename", 
+					"events.get", "events.getAll",
+					"messages.send"
+					]
+	
+	def init(self, host):
+		self.connected = False
+		self.window.connection_established = False
 
-		if port:
-			self.port = port
+		self.host = self._host_to_url(host)
+		valid = self._check_host()
 
-		self.closed = True
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		if not valid:
+			raise Exception("Invalid host or server doesn't respond")
+		else:
+			self.connected = True
+			print("Host is valid!")
 
-	def recv(self, data):
-		return self.sock.recv(data)
+	def method(self, method:str, data:dict = {}):
+		if method not in self.methods:
+			raise Exception("Unknown method")
+		elif not isinstance(data, dict):
+			raise Exception("Data param should be a dictionary")
+		
+		try:
+			if data:
+				response = requests.post(f"{self.host}/{method}", json=data)
+			else:
+				response = requests.get(f"{self.host}/{method}")
+		except requests.ConnectionError:
+			self.connected = False
+			self.window.connection_established = False
+			raise Exception("Connection error")
+		except Exception as E:
+			self.connected = False
+			self.window.connection_established = False
+			raise Exception(f"Unknown error while trying to get data - {E}")
 
-	def send(self, data):
-		self.sock.send(data)
-
-	def connected(self):
-		return not self.closed
-
-	def close_socket(self):
-		'''
-		disconnecting socket
-		'''
-
-		self.sock.close()
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.closed = True
-		return self.sock
-
-	def connection(self, ip = False, port = False):
-		if ip:
-			self.ip = ip
-		if port:
-			self.port = port
-
-		self.sock.connect((self.ip, self.port))
-		self.closed = False
-		return self.sock
-
-	def reconnection(self, ip = False, port = False):
-		if not self.closed:
-			self.close_socket()
-
-		if ip:
-			self.ip = ip
-		if port:
-			self.port = port
-
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.sock.connect((self.ip, self.port))
-		self.closed = False
-		return self.sock
-
-
-def try_to_connect(window, ip):
-	'''
-	функция для проверки возможности подключения к указанному пользователем айпи адресу
-	если при подключении к сокету и отправке на него ключевого слова `CONFIRM_CONNECTION` в течение 3-х секунд не придет ответа, содержащего ключевое слово`CONFIRMED`
-	то айпи адрес считается неверным
-	'''
-
-	try:
-		print(f"[{try_to_connect.__name__}]: connecting to socket...", end="")
-
-		if not window.sock.connected():
-			window.sock.connection(ip)
-
-	except Exception as error:
-		print("exception occured!")
-		print(f"\n[EXCEPTION AT '{try_to_connect.__name__}']: while trying to connect to socket `{error}`\n")
-		return False
-
-	print(f"connection to socket established successfully!")
-
-	sleep(3)
-	t0 = time()
-	data = None
-
-	print(f"[{try_to_connect.__name__}]: preparing to sent keyword `CONFIRM_CONNECTION`...", end="")
-	window.sock.send(pickle.dumps(["`CONFIRM_CONNECTION`"]))
-	print("sent! Start waiting for reply")
-
-	while True:
-		t1 = time()
-
-		if ((t1 - t0) > 3):
-			print(f"[{try_to_connect.__name__}]: 3 seconds passed, breaking...")
-			return False
+		return response.json()
+	
+	def _check_host(self):
+		print(f"[{self._check_host.__name__}]: preparing to check host...", end="")
 
 		try:
-			data = pickle.loads(window.sock.recv(512))
+			response = requests.post(self.host, json={"key": "_scream_"})
+			print("got response...", end="")
 
-			if data:
-				if data[0] == "`CONFIRMED`":
-					print(f"[{try_to_connect.__name__}]: gettings reply...confirmed")
+			result = response.json()["ok"]
+			print("got result...", end="")
 
-					# window.sock.send(pickle.dumps(["BREAK"]))
-					# window.sock.close_socket()
-					print(f"[{try_to_connect.__name__}]: start of server listener thread...", end="")
-					window.th = Thread(target=window.listen_server, args=())
-					window.th.start()
+			if isinstance(result, bool):
+				print("ready.")
+				return result
+			else:
+				print("result isn't an instance of bool!")
+				return False
+		except:
+			print("an exception occured!")
+			return False
+	
+	def _host_to_url(self, host):
+		print(f"[{self._host_to_url.__name__}]: going to change host to url...", end="")
 
-					return True
-		except Exception as E:
-			print(f"\n[EXCEPTION AT '{try_to_connect.__name__}']: while trying to recieve reply `{E}`\n")
-			continue
+		protocol = "http://" if ":5000" in host else "https://"
+		print(f"protocol is {protocol}...", end="")
+
+		if "http" not in host[:8]:
+			host = protocol + host
+
+		print("output: " + host)
+		return host

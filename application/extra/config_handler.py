@@ -9,8 +9,8 @@ class Config:
 	def __init__(self, path):
 		self.default = {
 			"nickname": "",
-			"hash": "new",
-			"ip": "127.0.0.1",
+			"user_id": None,
+			"host": None,
 			"first_time": True
 		}
 

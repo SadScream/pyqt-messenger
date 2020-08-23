@@ -1,230 +1,219 @@
-import time, hashlib
-import socket
-import pickle
-import json
-import threading
-from os import listdir
+from flask import Flask, request, abort
+import datetime
+import time
 
-hosted = socket.gethostbyname(socket.gethostname())
-print(hosted)
-port = 11719
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((hosted,port))
-s.listen(3)
+from json_handler import Json_handler
 
 
-print("[ Server Started ]")
+app = Flask(__name__)
+config = Json_handler()
 
 
-class Json_handler:
+def event(type_:str, user_id:int, **kwargs):
+	current_time = time.time()
+	e = {"type": type_, "user_id": user_id, "time": current_time}
+	e.update(kwargs)
 
-	def __init__(self):
-		listDir = listdir()
-		default = {"hashes": []}
-
-		if "SERVER_DATA.json" not in listDir:
-			with open("SERVER_DATA.json", "w", encoding='utf-8') as file:
-				json.dump(default, file, indent=4, ensure_ascii=False)
-
-	def upload(self, section, key, value=None):
-		self.download(section)
-		self._upload(section, key, value)
-
-	def download(self, section, key = None):
-		with open("SERVER_DATA.json", "r", encoding='utf-8') as file:
-			self.data = json.loads(file.read())
-
-			if section == "hashes":
-				self.object = self.data[section]
-
-			return self.object
-
-	def _upload(self, section, key, value):
-		with open("SERVER_DATA.json", "w", encoding='utf-8') as file:
-			if section == "hashes":
-				self.data[section].append({key:value})
-				json.dump(self.data, file, indent=4, ensure_ascii=False)
-			elif section == "nick":
-				i=0
-				for item in self.data["hashes"]:
-					for k, v in item.items():
-						if k == value:
-							self.data["hashes"].remove(self.data["hashes"][i])
-							self.data["hashes"].append({key:v})
-							break
-						else:
-							i+=1
-				json.dump(self.data, file, indent=4, ensure_ascii=False)
+	return e
 
 
-class Main(Json_handler):
-	def __init__(self):
-		super().__init__()
-		self.quit = False
-		self.clients = []
-		self.threads = []
+@app.route("/", methods=['POST'])
+def main_page():
+	"""
+	-> JSON {
+		"key": int,
+	}
+	:return: JSON {
+		"ok": bool
+	}
+	"""
 
-		th = threading.Thread(target=self.connection_handler, args=(s,))
-		th.start()
-		self.error_catcher()
+	key = request.json["key"]
 
-	def error_catcher(self):
-		try:
-			while True:
-				continue
-
-		except KeyboardInterrupt:
-			self.quit = True
-			s.close()
-
-	def connection_handler(self, sock):
-		while True:
-			if self.quit:
-				break
-
-			try:
-				client, addr = sock.accept()
-				print(f"Connection with {addr} established.", end=" ")
-			except:
-				return
-
-			if client not in self.clients:
-				print("Adding new client")
-				self.clients.append(client)
-				self.threads.append([threading.Thread(target=self.sender_handler, args=(client, addr)), client])
-				self.threads[-1][0].start()
-				# print(f"\n[{self.connection_handler.__name__}] new client added\nclient: {self.clients}\nthreads: {self.threads}\n")
-				
-	def sender_handler(self, client, addr):
-		try:
-			while True:
-				if self.quit:
-					break
-
-				event = pickle.loads(client.recv(4096)) # ждем отправки на сервер пакетов
-				
-				itsatime = time.strftime("%Y-%m-%d. . .%H:%M:%S", time.localtime())
-				info = (f"[{addr[0]}]=[{str(addr[1])}]=[{itsatime}]")
-
-				if event[0] == "`CONFIRM_CONNECTION`":
-					for user in self.clients:
-						if user == client:
-							loaded = ["`CONFIRMED`"]
-							user.send(pickle.dumps(loaded))
-							break			
-
-				elif event[0] == "CONNECTED":
-					print(info + "/user_connected")
-
-					for user in self.clients:
-						if user == client:
-							loaded = [event[0], "[You are connected.]"]
-						elif user != client:
-							loaded = [event[0], f"[{event[1]} connected.]"]
-
-						user.send(pickle.dumps(loaded))
+	if key == "_scream_":
+		return {"ok": True}
+	else:
+		return {"ok": False}
 
 
-				elif event[0] == "DISCONNECTED":
-					print(info + "/user_disconnected")
+@app.route("/user.getUsernames", methods=['GET'])
+def get_nicknames():
+	"""
+	:return: JSON {
+		"usernames": list
+	}
+	"""
 
-					for user in self.clients:
-						if user != client and event[1] != "":
-							loaded = [event[0], f"[{event[1]} disconnected.]"]
-							# user.send(pickle.dumps(loaded))
-						elif user == client:
-							loaded = [event[0], f"[SELF]"]
+	usernames = []
 
-						user.send(pickle.dumps(loaded))
+	for user in config.read_field("users"):
+		usernames.append(list(user.values())[0])
 
-					index = self.clients.index(client)
-
-					self.clients.pop(index)
-					self.threads.pop(index)
-					return
+	return {"usernames": usernames}
 
 
-				elif event[0] == "NICK_CHANGED":
-					print(info + "/shanged_nick")
+@app.route("/user.check", methods=['POST'])
+def check_id():
+	"""
+	-> JSON {
+		"user_id": int,
+	}
+	:return: JSON {
+		"ok": bool
+		"user_id": int
+	}
+	"""
 
-					found = self.searchNickname(event[3], event[4])
+	user_id = request.json["user_id"]
 
-					if found == False:
-						super().upload("nick", event[3], event[2])
-
-						for user in self.clients:
-							if user == client:
-								loaded = [event[0],
-											f"[{event[1]}]  [Your nickname now is {event[3]}]",
-											True]
-
-							elif user != client and event[2] != "":
-								loaded = [event[0],
-											f"[{event[1]}]  [{event[2]} nickname now is {event[3]}]",
-											None]
-
-							user.send(pickle.dumps(loaded))
-					else:
-						for user in self.clients:
-							if user == client:
-								user.send(pickle.dumps([event[0], "", False]))
+	if user_id >= 0 and user_id <= config.most_user_id:
+		return {"ok": True, "user_id": user_id}
+	else:
+		return {"ok": False, "user_id": user_id}
 
 
-				elif event[0] == "GET_HASH":
-					generated = str(hashlib.md5((str(addr)+str(event[2])).encode("utf-8")).hexdigest())
-					client.send(pickle.dumps([event[0], generated]))
-					super().upload("hashes", event[1], generated)
+@app.route("/user.getid", methods=['POST'])
+def get_id():
+	"""
+	-> JSON {
+		"nickname": str,
+	}
+	:return: JSON {
+		"user_id": int
+	}
+	"""
+
+	n = config.most_user_id
+	nickname = request.json["nickname"]
+
+	config.write_user(n, nickname)
+
+	return {"user_id": n}
 
 
-				elif event[0] == "CHECK_HASH":
-					users_hash = super().download("hashes")
-					confirmed = False
+@app.route("/messages.send", methods=['POST'])
+def send_message():
+	"""
+	-> JSON {
+		"user_id": int,
+		"message": str
+	}
+	:return: JSON {'ok': true}
+	"""
 
-					for item in users_hash:
-						if confirmed:
-							break
+	r = request.json
+	user_id = r["user_id"]
+	message = r["message"]
 
-						for k, v in item.items():
-							if v == event[1]:
-								confirmed = True
-								break
+	config.write_event(event(type_="messages.send", user_id=user_id, message=message, username=config.read_username(user_id)))
 
-					if confirmed:
-						client.send(pickle.dumps([event[0], "CONFIRMED"]))
-					else:
-						client.send(pickle.dumps([event[0], "UNCONFIRMED"]))
-
-
-				elif event[0] == "MESSAGE":
-					print(info + "/new_message")
-
-					for user in self.clients:
-						if user != client:
-							loaded = [event[0], f"[{event[1]}]  {event[2]}: {event[3]}"]
-						elif user == client:
-							loaded = [event[0], f"[{event[1]}]  You: {event[3]}"]
-						
-						user.send(pickle.dumps(loaded))
-		except:
-			return
+	return {"ok": True}
 
 
-	def searchNickname(self, toCheck, user_hash): # потом
-		'''
-		возвращаемые значения:
-		true: если никнейм уже принадлежит другому пользователю
-		false: в ином случае
-		'''
+@app.route("/user.connect", methods=['POST'])
+def connect():
+	"""
+	-> JSON {
+		"user_id": int
+	}
+	:return: {'ok': true}
+	"""
 
-		loading = super().download("hashes")
+	user_id = request.json["user_id"]
+	config.write_event(event(type_="user.connect", user_id=user_id, username=config.read_username(user_id)))
 
-		for n in loading:
-			for k, v in n.items():
-				if k == toCheck and v != user_hash:
-					return True
+	return {'ok': True}
 
-		return False
 
-if __name__ == '__main__':
-	Main()
+@app.route("/user.disconnect", methods=['POST'])
+def disconnect():
+	"""
+	-> JSON {
+		"user_id": int
+	}
+	:return: {'ok': true}
+	"""
+
+	user_id = request.json["user_id"]
+	config.write_event(event(type_="user.disconnect", user_id=user_id, username=config.read_username(user_id)))
+
+	return {'ok': True}
+
+
+@app.route("/user.rename", methods=['POST'])
+def nick_change():
+	"""
+	-> JSON {
+		"id": int,
+		"nickname": str
+	}
+	:return: JSON {
+		"ok": true
+	}
+	"""
+
+	user_id = request.json["id"]
+	nickname = request.json["nickname"]
+
+	for user in config.read_field("users"):
+		if list(user.values())[0] == nickname:
+			return {"ok": False}
+
+	config.change_user_nickname(user_id, nickname)
+
+	config.write_event(
+		event(
+			type_="user.rename", user_id=user_id,
+			confirmed=True,
+			old_name=config.read_username(user_id), 
+			new_name=nickname))
+
+	return {"ok": True}
+
+
+@app.route("/events.get", methods=['POST'])
+def get_events():
+	"""
+	-> JSON {
+		"after": float
+	}
+	:return: JSON {
+		"events": [
+			{ "type": str, "user_id": str, "message": str, "time": float }
+			...
+		]
+	}
+	"""
+
+	after = request.json["after"]
+	filtered_events = [
+		event for event in config.read_field("events") if event['time'] > after
+		]
+
+	return {
+		'events': filtered_events
+	}
+
+
+@app.route("/events.getAll", methods=['POST'])
+def get_all_events():
+	"""
+	-> JSON {
+		"after": float
+	}
+	:return: JSON {
+		"events": [
+			{ "type": str, "user_id": str, "message": str, "time": float }
+			...
+		]
+	}
+	"""
+
+	return {
+		'events': config.read_field("events")
+	}
+
+
+if __name__ == "__main__":
+	app.run()
+	config.close()

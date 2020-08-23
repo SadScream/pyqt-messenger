@@ -5,41 +5,45 @@ from extra import config_handler
 
 import os
 import sys
-import pickle
+import time
+import threading
 
 from PySide2 import QtCore, QtGui, QtWidgets
 from time import strftime, localtime, sleep
 
-from extra.connection import *
+from extra.connection import Server
 from ui.settings import Settings
 from ui.design import Ui_MainWindow
 from ui import res_rc
 
 
-CONNECT =    "CONNECTED"
-DISCONNECT = "DISCONNECTED"
-NICK =       "NICK_CHANGED"
-GET =        "GET_HASH"
-CHECK =      "CHECK_HASH"
-MSG =        "MESSAGE"
+CONNECT =    "user.connect"
+DISCONNECT = "user.disconnect"
+NICK =       "user.rename"
+GET_ID =     "user.getid"
+CHECK =      "user.check"
+MSG =        "messages.send"
 
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
-	HASH_SIGNAL = QtCore.Signal()
+	ID_SIGNAL = QtCore.Signal()
+	ERROR = QtCore.Signal(str)
 
 	def __init__(self):
 		super().__init__()
 		self.setupUi(self)
 
-		self.HASH_UNCONFIRMED = False
-		self.NICK_EXISTS = None
+		self.ID_UNCONFIRMED = False
 
-		self.sock = Connection()
-		self.settings = Settings(self, config)
+		path_to_cfg = os.path.join(os.getcwd(), "config.json")
+
+		self.config = config_handler.Config(path_to_cfg)
+		self.server = Server(self)
+		self.settings = Settings(self, self.server, self.config)
+		self.connection_established = False
 
 		self.listening_active = False
-		self.th = None
-
+		self.thread = None
 
 	def constructor(self):
 		print(f"[{self.constructor.__name__}]: setting parameters...", end="")
@@ -50,81 +54,85 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.read_config()
 
 		print("filling the fields...", end="")
-		self.settings.fields_filler(self.nickname, self.server_ip) # class
+		self.settings.fields_filler(self.nickname, self.host) # class
 
 		print("setting binds of signals...", end="")
 		self.settingButton.triggered.connect(self.generateSettingsWindow) # button
-		self.HASH_SIGNAL.connect(self.info_window)
 		self.direct.clicked.connect(self.message_handler)
+		self.ID_SIGNAL.connect(lambda: self.info_window("Invalid user"))
+		self.ERROR.connect(self.info_window)
 
 		print("checking of `first_time` parameter...")
-		first_time = config.read("first_time")
+		first_time = self.config.read("first_time")
 		print(f"[{self.constructor.__name__}]: first_time = {first_time}")
-
 
 		if first_time:
 			self.settingButton.triggered.emit()
-			config.write("first_time", False)
+			self.config.write("first_time", False)
 		else:
-			status = try_to_connect(window, self.server_ip)
+			if self.host != None:
+				try:
+					self.server.init(self.host)
 
-			if not status:
+					if self.server.connected:
+						self.connect_to_server()
+				except Exception as E:
+					self.info_window(str(E))
+
+				if not self.server.connected:
+					self.settingButton.triggered.emit()
+			else:
 				self.settingButton.triggered.emit()
-
-
-		print(f"[{self.constructor.__name__}]: preparing to get/check user hash")
-		self.hash_handler(self.hash)
+		
 		self.message.setFocus()
 
 		print(f"[{self.constructor.__name__}]: preparing to show window")
 		self.show()
 
+	def connect_to_server(self):
+		print(f"[{self.connect_to_server.__name__}]: preparing to get/check user id")
+		self.user_id_handler(self.user_id)
+		self.server.method(CONNECT, {"user_id": self.user_id})
+		self.connection_established = True
+		self.chat.append("[ You are connected. ]")
+
+		self.thread = threading.Thread(target=self.listen_server)
+		self.thread.start()
 
 	def generateSettingsWindow(self):
 		print(f"[{self.generateSettingsWindow.__name__}]: preparing to create `Settings` window")
-		self.settings.valid_settings = None
 		self.settings.exec_()
 
-		print(f"[{self.generateSettingsWindow.__name__}]: self.settings.valid_settings = {self.settings.valid_settings}")
+		print(f"[{self.generateSettingsWindow.__name__}]: self.connection_established = {self.connection_established}")
 
-		if self.settings.valid_settings == False:
+		if self.connection_established == False:
 			self.generateSettingsWindow()
 
-
-	def read_config(self, nickname = False, hash_ = False, ip = False):
+	def read_config(self, nickname = False, user_id = False, host = False):
 		'''
 		читаем либо что-то конкретное из файла конфига, либо все сразу
 		'''
 
 		if nickname:
-			self.nickname = config.read("nickname")
-		if hash_:
-			self.hash = config.read("hash")
-		if ip:
-			self.server_ip = config.read("ip")
+			self.nickname = self.config.read("nickname")
+		if user_id:
+			self.user_id = self.config.read("user_id")
+		if host:
+			self.host = self.config.read("host")
 
-		elif not nickname and not hash_ and not ip:
-			self.nickname = config.read("nickname")
-			self.hash = config.read("hash")
-			self.server_ip = config.read("ip")
-
+		elif not nickname and not user_id and not host:
+			self.nickname = self.config.read("nickname")
+			self.user_id = self.config.read("user_id")
+			self.host = self.config.read("host")
 
 	def time(self):
 		return strftime("%H:%M:%S", localtime())
 
-
-	def info_window(self, text_ = False):
+	@QtCore.Slot()
+	def info_window(self, text = False):
 		'''
 		вызов окна с определенным сообщением
 		'''
-
-		text = ""
-
-		if not text_:
-			if self.HASH_UNCONFIRMED:
-				text = "Invalid user"
-		else:
-			text = text_
 
 		self.show_message = QtWidgets.QMessageBox(self)
 
@@ -138,33 +146,40 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		ok = self.show_message.exec_()
 
-		if ok and self.HASH_UNCONFIRMED:
-			print(f"[{self.info_window.__name__}]: hash UNCONFIRMED.")
+		if ok and self.ID_UNCONFIRMED:
+			print(f"[{self.info_window.__name__}]: id UNCONFIRMED.")
 
-			if self.sock.connected():
+			if self.server.connected:
 				self.send(DISCONNECT, self.nickname)
-				print(f"[{self.info_window.__name__}]: closing socket...", end="")
+				print(f"[{self.info_window.__name__}]: closing connection...", end="")
 
 				while self.listening_active:
 					continue
 
-				self.sock.close_socket()
 				print("closed")
 
 			print(f"[{self.info_window.__name__}]: closing application.")
 			self.close()
 
-
-	def hash_handler(self, arg):
+	def user_id_handler(self, arg):
 		'''
-		получение/проверка хэша
+		получение/проверка айди
 		'''
 
-		if arg == "new":
-			self.send(GET, self.nickname, self.time())
+		if arg == None:
+			response = self.server.method(GET_ID, {"nickname": self.config.read("nickname")})
+			self.config.write("user_id", response["user_id"])
+			self.read_config(user_id=True)
 		else:
-			self.send(CHECK, self.hash)
+			response = self.server.method(CHECK, {"user_id": self.user_id})
+			self.ID_UNCONFIRMED = not response["ok"]
 
+			if response["ok"]:
+				print("USER_ID confirmed!")
+			else:
+				print("Invalid user_id")
+				self.ID_SIGNAL.emit()
+				self.close()
 
 	def closeEvent(self, evnt):
 		'''
@@ -173,47 +188,39 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		print(f"[{self.closeEvent.__name__}]: close event discovered. Exiting...", end=" ")
 
-		if not self.HASH_UNCONFIRMED:
-			print("Closing socket...", end="")
+		if not self.ID_UNCONFIRMED:
+			print("Closing connection...", end="")
 
-			self.send(DISCONNECT, self.nickname)
+			self.server.method(DISCONNECT, {"user_id": self.user_id})
 
 			while (self.listening_active):
 				continue
-			
-			self.sock.close_socket()
+
 			print("closed.")
 
-		config.close()
+		self.config.close()
 		print("Exited")
 		evnt.accept()
-
 
 	def message_handler(self):
 		'''
 		функция для отправки сообщений
 		'''
 		
-		self.msg = self.message.toPlainText()
+		msg = self.message.toPlainText()
 
-		if not (self.msg.isspace()):
-			if len(self.msg) > 0:
+		if not (msg.isspace()):
+			if len(msg) > 0:
 				print(f"[{self.message_handler.__name__}]: trying to send message...", end="")
 
 				self.message.clear()
-				self.send(MSG, self.time(), self.nickname, self.msg)
+
+				if len(msg) > 512:
+					msg = msg[512:]
+
+				self.server.method(MSG, {"message": msg, "user_id": self.user_id})
 				self.message.setFocus()
-
 				print(f"message sent")
-
-
-	def send(self, *sequence):
-		'''
-		отправка пакетов сокету
-		'''
-
-		self.sock.send(pickle.dumps([var for var in sequence]))
-
 
 	def listen_server(self):
 		'''
@@ -222,60 +229,56 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		print(f"[{self.listen_server.__name__}]: start to listening server...")
 		self.listening_active = True
+		after = time.time()
 
 		while self.listening_active:
 			try:
-				data = pickle.loads(self.sock.recv(512))
+				data = self.server.method("events.get", {"after": after})["events"]
 
-				# print(f"[{self.listen_server.__name__}]: recieved data `{data[0]}`")
+				if data:
+					data = data[-1]
+					after = data["time"]
+				else:
+					time.sleep(1.33)
+					continue
+				
+				# print(f"[{self.listen_server.__name__}]: recieved data `{data}`")
 
-				if data[0] == GET:
-					self.send(CONNECT, self.nickname)
-					print(f"[{self.listen_server.__name__}]: got new hash.\tHASH: `{data[1]}`")
-					config.write("hash", data[1])
-
-				elif data[0] == CHECK:
-					print(f"[{self.listen_server.__name__}]: getting hash results...")
-					if data[1] == "CONFIRMED":
-						print(f"[{self.listen_server.__name__}]: hash confirmed.\tHASH: `{self.hash}`")
-						self.send(CONNECT, self.nickname)
-						
-					elif data[1] == "UNCONFIRMED":
-						self.HASH_UNCONFIRMED = True
-						self.HASH_SIGNAL.emit()
-
-				elif data[0] == NICK:
-					if data[2] == True:
-						config.write("nickname", self.settings.nicknameLine.text())
-						self.read_config()
-						self.NICK_EXISTS = False
-						self.chat.append(data[1])
-					elif data[2] == False:
-						self.NICK_EXISTS = True
+				if data["type"] == NICK:
+					if data["confirmed"] == True:
+						if data["user_id"] == self.user_id:
+							self.config.write("nickname", data["new_name"])
+							self.read_config()
+							self.chat.append(f"Your nickname now is {data['new_nam']}")
+						else:
+							self.chat.append(f"{data['old_name']} set his nickname to {data['new_name']}")
 					else:
 						self.chat.append(data[1])
 
-				elif data[0] == DISCONNECT:
-					if data[1] == "[SELF]":
+				elif data["type"] == DISCONNECT:
+					if data["user_id"] == self.user_id:
 						self.listening_active = False
 					else:
-						self.chat.append(data[1])
+						self.chat.append(f"[ {data['username']} disconnected. ]")
 
-				elif data[0] in [MSG, CONNECT]:
-					self.chat.append(data[1])
+				elif data["type"] == MSG:
+					if data["user_id"] == self.user_id:
+						self.chat.append(f"You: {data['message']}")
+					else:
+						self.chat.append(f"{data['username']}: {data['message']}")
+				
+				elif data["type"] == CONNECT:
+					self.chat.append(f"{data['username']} connected.")
+				
+				time.sleep(0.33)
 
 			except Exception as E:
 				print(f"\n[EXCEPTION AT '{self.listen_server.__name__}']: while trying to recieve data `{E}`\n")
-
-				if ("[WinError 10053]" not in str(E)):
-					self.chat.append(f"ERROR: {E}")
-
 				self.listening_active = False
+				self.ERROR.emit("[Exception]: "+str(E))
 
 
 if __name__ == '__main__':
-	config = config_handler.Config(os.path.join(os.getcwd(), "config.json"))
-
 	app = QtWidgets.QApplication(sys.argv)
 	window = App()
 	window.constructor()
