@@ -1,5 +1,4 @@
 from flask import Flask, request, abort
-import datetime
 import time
 
 from json_handler import Json_handler
@@ -159,14 +158,14 @@ def nick_change():
 		if list(user.values())[0] == nickname:
 			return {"ok": False}
 
-	config.change_user_nickname(user_id, nickname)
-
 	config.write_event(
 		event(
 			type_="user.rename", user_id=user_id,
 			confirmed=True,
 			old_name=config.read_username(user_id), 
 			new_name=nickname))
+
+	config.change_user_nickname(user_id, nickname)
 
 	return {"ok": True}
 
@@ -195,12 +194,9 @@ def get_events():
 	}
 
 
-@app.route("/events.getAll", methods=['POST'])
+@app.route("/events.getAll", methods=['POST', 'GET'])
 def get_all_events():
 	"""
-	-> JSON {
-		"after": float
-	}
 	:return: JSON {
 		"events": [
 			{ "type": str, "user_id": str, "message": str, "time": float }

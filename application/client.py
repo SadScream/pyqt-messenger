@@ -6,9 +6,10 @@ from extra import config_handler
 import os
 import sys
 import time
+import datetime
 import threading
 
-from PySide2 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets, QtMultimedia
 from time import strftime, localtime, sleep
 
 from extra.connection import Server
@@ -28,6 +29,9 @@ MSG =        "messages.send"
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
 	ID_SIGNAL = QtCore.Signal()
 	ERROR = QtCore.Signal(str)
+	SERVER_ERROR = QtCore.Signal(str)
+	PLAY_AUDIO = QtCore.Signal()
+	write_signal = QtCore.Signal(str, str, str, str)
 
 	def __init__(self):
 		super().__init__()
@@ -36,7 +40,21 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.ID_UNCONFIRMED = False
 
 		path_to_cfg = os.path.join(os.getcwd(), "config.json")
+		path_to_file = os.path.abspath(__file__)
+		path_to_audio = os.path.join(os.path.split(path_to_file)[0], "audio")
+		self.message_audio = None
 
+		print("Search for message sound in:\n")
+		print(f"\tpath to file: {os.path.split(path_to_file)[0]}")
+		print(f"\tpath to audio: {path_to_audio}...", end="")
+
+		if "audio" in os.listdir(os.path.split(path_to_file)[0]) and "msg.wav" in os.listdir(path_to_audio):
+			self.message_audio = QtMultimedia.QSound(os.path.join(path_to_audio, "msg.wav"))
+			print("found!")
+		else:
+			print("NOT found!")
+
+		self.text_chat = ""
 		self.config = config_handler.Config(path_to_cfg)
 		self.server = Server(self)
 		self.settings = Settings(self, self.server, self.config)
@@ -59,14 +77,19 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		print("setting binds of signals...", end="")
 		self.settingButton.triggered.connect(self.generateSettingsWindow) # button
 		self.direct.clicked.connect(self.message_handler)
+
 		self.ID_SIGNAL.connect(lambda: self.info_window("Invalid user"))
 		self.ERROR.connect(self.info_window)
+		self.SERVER_ERROR.emit(self.info_window)
+		self.PLAY_AUDIO.connect(self.play_audio)
+		self.write_signal.connect(self.write_chat)
 
 		print("checking of `first_time` parameter...")
 		first_time = self.config.read("first_time")
 		print(f"[{self.constructor.__name__}]: first_time = {first_time}")
 
 		if first_time:
+			self.config.write("first_open_time", time.time())
 			self.settingButton.triggered.emit()
 			self.config.write("first_time", False)
 		else:
@@ -83,18 +106,23 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 					self.settingButton.triggered.emit()
 			else:
 				self.settingButton.triggered.emit()
-		
-		self.message.setFocus()
 
 		print(f"[{self.constructor.__name__}]: preparing to show window")
 		self.show()
+		self.chat.setFocus()
+		self.chat.verticalScrollBar().setSliderPosition(
+			self.chat.verticalScrollBar().maximum())
+		print(self.chat.verticalScrollBar().maximum())
+		self.message.setFocus()
 
 	def connect_to_server(self):
 		print(f"[{self.connect_to_server.__name__}]: preparing to get/check user id")
 		self.user_id_handler(self.user_id)
 		self.server.method(CONNECT, {"user_id": self.user_id})
+		self.load_messages()
 		self.connection_established = True
-		self.chat.append("[ You are connected. ]")
+		# self.write_signal.emit(CONNECT, "",
+		#                        "You are", "connected")
 
 		self.thread = threading.Thread(target=self.listen_server)
 		self.thread.start()
@@ -125,8 +153,9 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 			self.user_id = self.config.read("user_id")
 			self.host = self.config.read("host")
 
-	def time(self):
-		return strftime("%H:%M:%S", localtime())
+	def time(self, float_time):
+		t = datetime.datetime.fromtimestamp(float_time)
+		return t.strftime('%H:%M')
 
 	@QtCore.Slot()
 	def info_window(self, text = False):
@@ -191,9 +220,18 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if not self.ID_UNCONFIRMED:
 			print("Closing connection...", end="")
 
-			self.server.method(DISCONNECT, {"user_id": self.user_id})
+			print("sending disconnect message...", end="")
+			disconnect_thread = threading.Thread(
+				target=self.server.method, args=(DISCONNECT, {"user_id": self.user_id}))
+			disconnect_thread.start()
+			print("sent...", end="")
+
+			t = time.time()
 
 			while (self.listening_active):
+				if time.time() - t > 5:
+					break
+				
 				continue
 
 			print("closed.")
@@ -201,6 +239,10 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.config.close()
 		print("Exited")
 		evnt.accept()
+	
+	def play_audio(self):
+		if self.message_audio.isFinished():
+			self.message_audio.play()
 
 	def message_handler(self):
 		'''
@@ -211,16 +253,63 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		if not (msg.isspace()):
 			if len(msg) > 0:
-				print(f"[{self.message_handler.__name__}]: trying to send message...", end="")
-
 				self.message.clear()
 
 				if len(msg) > 512:
 					msg = msg[512:]
 
 				self.server.method(MSG, {"message": msg, "user_id": self.user_id})
+
+				sleep(0.3)
 				self.message.setFocus()
-				print(f"message sent")
+	
+	@QtCore.Slot(str, str, str, str)
+	def write_chat(self, type_, time_, name, text):
+		message_template = f'''
+		<span style="color:rgb(130,141,148);" id=time>[{time_}] </span>
+		<span style="color:rgb(125,47,218);" id=name>{name}: </span>
+		<span style="color:rgb(245,245,245);" id=text>{text}</span>
+		'''
+
+		connection_template = f'''
+		<span style="color:rgb(51,57,63);">[ </span>
+		<span style="color:rgb(51,57,63);">{name}</span>
+		<span style="color:rgb(51,57,63);">{text}. ]</span>
+		'''
+
+		nick_template = f'''
+		<span style="color:rgb(51,57,63);">[ </span>
+		<span style="color:rgb(51,57,63);">{name}</span>
+		<span style="color:rgb(51,57,63);">nickname now is {text} ]</span>
+		'''
+
+		template = ""
+		
+		if type_ == CONNECT or DISCONNECT:
+			template = connection_template
+
+		if type_ == MSG:
+			template = message_template
+		
+		if type_ == NICK:
+			template = nick_template
+
+		self.text_chat += f'''<div style="font-family:Calibri;font-size:12pt;">{template}</div>'''
+		self.chat.setHtml(self.text_chat)
+		self.chat.verticalScrollBar().setSliderPosition(0)
+
+		if self.connection_established:
+			time.sleep(0.03)
+
+		self.chat.verticalScrollBar().setSliderPosition(self.chat.verticalScrollBar().maximum())
+
+	def load_messages(self):
+		after = self.config.read("first_open_time")
+		data_events = self.server.method("events.getAll")["events"]
+
+		if data_events:
+			for data in data_events:
+				self.processing_data(data, on_loading=True, after=after)
 
 	def listen_server(self):
 		'''
@@ -239,43 +328,65 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 					data = data[-1]
 					after = data["time"]
 				else:
-					time.sleep(1.33)
+					time.sleep(0.34)
 					continue
 				
 				# print(f"[{self.listen_server.__name__}]: recieved data `{data}`")
 
-				if data["type"] == NICK:
-					if data["confirmed"] == True:
-						if data["user_id"] == self.user_id:
-							self.config.write("nickname", data["new_name"])
-							self.read_config()
-							self.chat.append(f"Your nickname now is {data['new_nam']}")
-						else:
-							self.chat.append(f"{data['old_name']} set his nickname to {data['new_name']}")
-					else:
-						self.chat.append(data[1])
-
-				elif data["type"] == DISCONNECT:
-					if data["user_id"] == self.user_id:
-						self.listening_active = False
-					else:
-						self.chat.append(f"[ {data['username']} disconnected. ]")
-
-				elif data["type"] == MSG:
-					if data["user_id"] == self.user_id:
-						self.chat.append(f"You: {data['message']}")
-					else:
-						self.chat.append(f"{data['username']}: {data['message']}")
-				
-				elif data["type"] == CONNECT:
-					self.chat.append(f"{data['username']} connected.")
-				
-				time.sleep(0.33)
+				self.processing_data(data)
 
 			except Exception as E:
 				print(f"\n[EXCEPTION AT '{self.listen_server.__name__}']: while trying to recieve data `{E}`\n")
 				self.listening_active = False
-				self.ERROR.emit("[Exception]: "+str(E))
+
+				if "[SERVER]" not in str(E):
+					self.ERROR.emit("[Exception]: "+str(E))
+
+	def processing_data(self, data, on_loading = False, after=None):
+		if on_loading:
+			if not data["time"] > after:
+				return
+
+		if data["type"] == NICK:
+			if data["confirmed"] == True:
+				if data["user_id"] == self.user_id:
+					self.config.write("nickname", data["new_name"])
+					self.read_config()
+					self.write_signal.emit(data["type"], "", "Your", f"{data['new_name']}")
+				else:
+					self.write_signal.emit(data["type"], "", f"{data['old_name']}", f"{data['new_name']}")
+			else:
+				self.write_signal.emit(data[1], "black")
+
+		elif data["type"] == DISCONNECT:
+			if data["user_id"] == self.user_id and not on_loading:
+				self.listening_active = False
+			elif data["user_id"] != self.user_id:
+				self.write_signal.emit(data["type"], "", data['username'], "disconnected")
+			elif data["user_id"] == self.user_id and on_loading:
+				self.write_signal.emit(data["type"], "", "You are", "disconnected")
+
+		elif data["type"] == MSG:
+			if data["user_id"] == self.user_id:
+				self.write_signal.emit(data["type"], self.time(data['time']), "You", data['message'])
+			else:
+				if self.message_audio != None and not on_loading:
+					self.PLAY_AUDIO.emit()
+					
+				self.write_signal.emit(data["type"], self.time(data['time']), data['username'], data['message'])
+		
+		elif data["type"] == CONNECT:
+			if data["user_id"] != self.user_id:
+				self.write_signal.emit(data["type"], "", data['username'], "connected")
+			if data["user_id"] == self.user_id:
+				self.write_signal.emit(data["type"], "", "You are", "connected")
+		
+		if not on_loading:
+			time.sleep(0.34)
+		else:
+			return
+
+			
 
 
 if __name__ == '__main__':

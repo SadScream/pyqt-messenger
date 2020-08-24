@@ -49,6 +49,12 @@ class Json_handler:
 		return list(self.data["users"][user_id].values())[0]
 
 	def write_event(self, event):
+		if len(self.data["events"]) > 100:
+			print(len(self.data["events"]))
+			# если кол-во events больше 100, то 50 первых удаляются
+			for i in range((len(self.data["events"])-50)):
+				self.data["events"].pop(i)
+				
 		self.close()
 		self.data["events"].append(event)
 
@@ -59,4 +65,7 @@ class Json_handler:
 
 	def change_user_nickname(self, user_id, nickname):
 		self.close()
-		self.data["users"][user_id] = nickname
+
+		self.data["users"][user_id] = {f"{user_id}": nickname}
+		
+		self.close()

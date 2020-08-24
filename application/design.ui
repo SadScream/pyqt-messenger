@@ -30,20 +30,20 @@
     <normaloff>:/icons/icons/chat.png</normaloff>:/icons/icons/chat.png</iconset>
   </property>
   <property name="styleSheet">
-   <string notr="true">QMainWindow {background-color: rgb(212, 212, 212);}</string>
+   <string notr="true">QMainWindow {background-color: rgb(40,46,51);}</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPlainTextEdit" name="message">
     <property name="geometry">
      <rect>
-      <x>4</x>
+      <x>44</x>
       <y>317</y>
-      <width>361</width>
+      <width>321</width>
       <height>68</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">QPlainTextEdit {border: none;background: qlineargradient(spread:pad, angle:135, x1:0, y1:0, x2:1, y2:0, stop: 0 rgba(79,98,161,1), stop: 0.65 rgba(155,46,217,1));font-size:16px;font-family:&quot;Calibri&quot;;}</string>
+     <string notr="true">QPlainTextEdit {border: 1px solid rgb(20,26,31);border-radius: 8px;background-color: rgb(40,46,51);color: rgb(245,245,245);font-size:16px;font-family:\&quot;Calibri\&quot;;}</string>
     </property>
     <property name="placeholderText">
      <string>Enter your message</string>
@@ -52,14 +52,14 @@
    <widget class="QPushButton" name="direct">
     <property name="geometry">
      <rect>
-      <x>370</x>
-      <y>364</y>
-      <width>35</width>
-      <height>21</height>
+      <x>368</x>
+      <y>330</y>
+      <width>38</width>
+      <height>38</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">QPushButton {background-color: rgb(212, 212, 212);;font-size: 13px;border: none;}QPushButton:hover {background-color: rgb(227, 227, 227);}</string>
+     <string notr="true">QPushButton {background-color: rgb(40,46,51);font-size: 13px;border: none;border-radius: 19px;}QPushButton:hover {background-color: rgb(47,53,58);}</string>
     </property>
     <property name="text">
      <string/>
@@ -70,22 +70,22 @@
     </property>
     <property name="iconSize">
      <size>
-      <width>33</width>
-      <height>33</height>
+      <width>48</width>
+      <height>48</height>
      </size>
     </property>
    </widget>
    <widget class="QPushButton" name="attachment">
     <property name="geometry">
      <rect>
-      <x>370</x>
-      <y>317</y>
-      <width>35</width>
-      <height>21</height>
+      <x>3</x>
+      <y>330</y>
+      <width>38</width>
+      <height>38</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">QPushButton {background-color: rgb(212, 212, 212);;font-size: 13px;border: none;}QPushButton:hover {background-color: rgb(227, 227, 227);}</string>
+     <string notr="true">QPushButton {background-color: rgb(40,46,51);font-size: 13px;border: none;border-radius: 19px;}QPushButton:hover {background-color: rgb(47,53,58);}</string>
     </property>
     <property name="text">
      <string/>
@@ -105,16 +105,16 @@
     <property name="geometry">
      <rect>
       <x>4</x>
-      <y>4</y>
+      <y>5</y>
       <width>401</width>
-      <height>308</height>
+      <height>307</height>
      </rect>
     </property>
     <property name="cursor" stdset="0">
      <cursorShape>ArrowCursor</cursorShape>
     </property>
     <property name="styleSheet">
-     <string notr="true">QTextEdit {border: none;background: rgb(245, 245, 245);font-size: 15px;font-family: &quot;Calibri&quot;}</string>
+     <string notr="true">QTextEdit {border: none;border-radius: 10px;background: rgb(24,25,29);font-size: 15px;font-family: \&quot;Calibri\&quot;}</string>
     </property>
     <property name="textInteractionFlags">
      <set>Qt::NoTextInteraction</set>

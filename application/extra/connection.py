@@ -31,9 +31,11 @@ class Server:
 
 	def method(self, method:str, data:dict = {}):
 		if method not in self.methods:
-			raise Exception("Unknown method")
+			self.window.SERVER_ERROR.emit("Unknown method")
+			raise Exception("[SERVER] Unknown method")
 		elif not isinstance(data, dict):
-			raise Exception("Data param should be a dictionary")
+			self.window.SERVER_ERROR.emit("Data param should be a dictionary")
+			raise Exception("[SERVER] Data param should be a dictionary")
 		
 		try:
 			if data:
@@ -43,11 +45,13 @@ class Server:
 		except requests.ConnectionError:
 			self.connected = False
 			self.window.connection_established = False
-			raise Exception("Connection error")
+			self.window.SERVER_ERROR.emit("Connection error")
+			raise Exception("[SERVER] Connection error")
 		except Exception as E:
 			self.connected = False
 			self.window.connection_established = False
-			raise Exception(f"Unknown error while trying to get data - {E}")
+			self.window.SERVER_ERROR.emit(f"Unknown error while trying to get data - {E}")
+			raise Exception(f"[SERVER] Unknown error while trying to get data - {E}")
 
 		return response.json()
 	

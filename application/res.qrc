@@ -2,8 +2,8 @@
   <qresource prefix="icons">
     <file>icons/loading.png</file>
     <file>icons/attachment.png</file>
-    <file>icons/send.png</file>
     <file>icons/chat.png</file>
+    <file>icons/send.png</file>
   </qresource>
   <qresource prefix="menuBar">
     <file>icons/settings.png</file>

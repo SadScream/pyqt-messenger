@@ -58,19 +58,19 @@ class Ui_Dialog(object):
 
         self.generalForm.setWidget(0, QFormLayout.FieldRole, self.nicknameLine)
 
-        self.ipLabel = QLabel(self.formLayoutWidget)
-        self.ipLabel.setObjectName(u"ipLabel")
-        self.ipLabel.setStyleSheet(u"")
+        self.hostLabel = QLabel(self.formLayoutWidget)
+        self.hostLabel.setObjectName(u"hostLabel")
+        self.hostLabel.setStyleSheet(u"")
 
-        self.generalForm.setWidget(1, QFormLayout.LabelRole, self.ipLabel)
+        self.generalForm.setWidget(1, QFormLayout.LabelRole, self.hostLabel)
 
-        self.ipLine = QLineEdit(self.formLayoutWidget)
-        self.ipLine.setObjectName(u"ipLine")
-        self.ipLine.setAcceptDrops(False)
-        self.ipLine.setInputMethodHints(Qt.ImhLatinOnly)
-        self.ipLine.setMaxLength(16)
+        self.hostLine = QLineEdit(self.formLayoutWidget)
+        self.hostLine.setObjectName(u"hostLine")
+        self.hostLine.setAcceptDrops(False)
+        self.hostLine.setInputMethodHints(Qt.ImhLatinOnly)
+        self.hostLine.setMaxLength(16)
 
-        self.generalForm.setWidget(1, QFormLayout.FieldRole, self.ipLine)
+        self.generalForm.setWidget(1, QFormLayout.FieldRole, self.hostLine)
 
         self.loading_icon = QPushButton(self.generalBox)
         self.loading_icon.setObjectName(u"loading_icon")
@@ -113,8 +113,8 @@ class Ui_Dialog(object):
         self.generalBox.setTitle(QCoreApplication.translate("Dialog", u"General", None))
         self.nicknameLabel.setText(QCoreApplication.translate("Dialog", u"Nickname", None))
         self.nicknameLine.setPlaceholderText("")
-        self.ipLabel.setText(QCoreApplication.translate("Dialog", u"Server IP", None))
-        self.ipLine.setText("")
+        self.hostLabel.setText(QCoreApplication.translate("Dialog", u"Host", None))
+        self.hostLine.setText("")
         self.loading_icon.setText("")
         self.saveButton.setText(QCoreApplication.translate("Dialog", u"Save", None))
         self.cancelButton.setText(QCoreApplication.translate("Dialog", u"Cancel", None))

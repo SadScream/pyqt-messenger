@@ -11,7 +11,8 @@ class Config:
 			"nickname": "",
 			"user_id": None,
 			"host": None,
-			"first_time": True
+			"first_time": True,
+			"first_open_time": None
 		}
 
 		print(f"[{os.path.split(__file__)[1]} => {self.__init__.__name__}] Initializing config...", end="")
