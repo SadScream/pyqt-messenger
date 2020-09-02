@@ -14,18 +14,33 @@ class Json_handler:
 		self.most_user_id:int
 
 		if "SERVER_DATA.json" not in os.listdir(os.getcwd()):
-			with open(self.file, "w", encoding='utf-8') as file:
-				file.write(dumps(self.default, indent=4, ensure_ascii=False))
+			self.write_def_data()
+		else:
+			self.open()
 
+	def write_def_data(self):
+		with open(self.file, "w", encoding='utf-8') as file:
+			file.write(dumps(self.default, indent=4, ensure_ascii=False))
+		
 		self.open()
 
 	def open(self):
+		wrong = False
+
 		try:
 			with open(self.file, "r", encoding="utf-8") as file:
-				self.data = loads(file.read(), encoding="utf-8")
-				self.most_user_id = len(self.data["users"])
+				s = file.read()
+
+				if len(str(s)) > 5:
+					self.data = loads(s, encoding="utf-8")
+					self.most_user_id = len(self.data["users"])
+				else:
+					wrong = True
 		except Exception as E:
 			raise Exception(f"Exception while tring to load config:\t{E}")
+		
+		if wrong:
+			return self.write_def_data()
 
 	def close(self):
 		try:

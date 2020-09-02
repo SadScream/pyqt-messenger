@@ -43,7 +43,7 @@
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">QPlainTextEdit {border: 1px solid rgb(20,26,31);border-radius: 8px;background-color: rgb(40,46,51);color: rgb(245,245,245);font-size:16px;font-family:\&quot;Calibri\&quot;;}</string>
+     <string notr="true">QPlainTextEdit {border: 1px solid rgb(20,26,31);border-radius: 8px;background-color: rgb(40,46,51);color: rgb(245,245,245);font-size:16px;font-family:&quot;Calibri&quot;;}</string>
     </property>
     <property name="placeholderText">
      <string>Enter your message</string>
@@ -99,28 +99,6 @@
       <width>24</width>
       <height>24</height>
      </size>
-    </property>
-   </widget>
-   <widget class="QTextEdit" name="chat">
-    <property name="geometry">
-     <rect>
-      <x>4</x>
-      <y>5</y>
-      <width>401</width>
-      <height>307</height>
-     </rect>
-    </property>
-    <property name="cursor" stdset="0">
-     <cursorShape>ArrowCursor</cursorShape>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">QTextEdit {border: none;border-radius: 10px;background: rgb(24,25,29);font-size: 15px;font-family: \&quot;Calibri\&quot;}</string>
-    </property>
-    <property name="textInteractionFlags">
-     <set>Qt::NoTextInteraction</set>
-    </property>
-    <property name="placeholderText">
-     <string/>
     </property>
    </widget>
   </widget>

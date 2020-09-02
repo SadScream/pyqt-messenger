@@ -6,16 +6,26 @@ from extra import config_handler
 import os
 import sys
 import time
+from random import choice
 import datetime
 import threading
 
 from PySide2 import QtCore, QtGui, QtWidgets, QtMultimedia
-from time import strftime, localtime, sleep
 
 from extra.connection import Server
 from ui.settings import Settings
 from ui.design import Ui_MainWindow
 from ui import res_rc
+
+
+
+'''
+TODO
+переделать выдачу айдишников
+сделать шифрование ивентов
+добавить отправку медиа
+'''
+
 
 
 CONNECT =    "user.connect"
@@ -25,13 +35,75 @@ GET_ID =     "user.getid"
 CHECK =      "user.check"
 MSG =        "messages.send"
 
+color = choice(['rgb(225, 103, 148)',
+	'rgb(236, 117, 119)',
+	'rgb(69, 179, 224)',
+	'rgb(63, 199, 195)',
+	'rgb(94, 190, 127)',
+	'rgb(236, 117, 101)',
+	'rgb(179, 131, 215)',
+	'rgb(225, 103, 148)',
+	'rgb(79, 53, 225)'
+	])
+
+## templates
+connection_template = '''
+<div style="text-align:center;color:rgb(36,42,48);font-size: 11pt;">
+	<span>{0}</span>
+	<span>{1}</span>
+</div>'''
+
+message_to = '''
+<div style="padding-top: 1px; padding-bottom: 1px; transform: scaleX(-1);">
+	<div style="border: none; padding-top: 3px; 
+				padding-bottom: 5px; transform: scaleX(-1);
+				background: linear-gradient(21deg, #dd03e4, #5611ec);
+				border-radius: 5px; width: {0}px">
+
+		<span style="text-align: left;">
+			<div style="color:rgb(245,245,245); padding-left: 6px;">{1}</div>
+		</span>
+
+		<span style="text-align: right;">
+			<div style="color:rgb(130,141,148); font-size: 9pt; padding-right: 7px;">{2}</div>
+		</span>
+	</div>
+</div>'''
+
+message_from = '''
+<div style="padding-top: 1px; padding-bottom: 1px;">
+	<div style="border: none; padding-top: 3px; 
+				padding-bottom: 5px; background: rgb(51,57,63); 
+				border-radius: 5px; width: {0}px">
+
+		<span>
+			<div style="color:{1}; padding-left: 8px;">{2}</div>
+		</span>
+
+		<span style="">
+			<div style="color:rgb(245,245,245); padding-left: 8px;">{3}</div>
+		</span>
+
+		<span style="text-align: right;">
+			<div style="color:rgb(130,141,148); font-size: 9pt; padding-right: 7px;">{4}</div>
+		</span>
+	</div>
+</div>'''
+
+nick_template = '''
+<div style="text-align:center;color:rgb(36,42,48);font-size: 11pt;">
+	<span>{0}</span>
+	<span>nickname now is {1}</span>
+</div>'''
+# templates
+
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
 	ID_SIGNAL = QtCore.Signal()
 	ERROR = QtCore.Signal(str)
 	SERVER_ERROR = QtCore.Signal(str)
 	PLAY_AUDIO = QtCore.Signal()
-	write_signal = QtCore.Signal(str, str, str, str)
+	write_signal = QtCore.Signal(str, str, str, str, str)
 
 	def __init__(self):
 		super().__init__()
@@ -54,14 +126,14 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		else:
 			print("NOT found!")
 
-		self.text_chat = ""
 		self.config = config_handler.Config(path_to_cfg)
-		self.server = Server(self)
-		self.settings = Settings(self, self.server, self.config)
 		self.connection_established = False
-
 		self.listening_active = False
 		self.thread = None
+		self.paused = False
+
+		self.server = Server(self)
+		self.settings = Settings(self, self.server, self.config)
 
 	def constructor(self):
 		print(f"[{self.constructor.__name__}]: setting parameters...", end="")
@@ -97,32 +169,31 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				try:
 					self.server.init(self.host)
 
-					if self.server.connected:
+					if self.server.respond:
 						self.connect_to_server()
 				except Exception as E:
 					self.info_window(str(E))
 
-				if not self.server.connected:
+				if not self.server.respond:
 					self.settingButton.triggered.emit()
 			else:
 				self.settingButton.triggered.emit()
 
 		print(f"[{self.constructor.__name__}]: preparing to show window")
 		self.show()
-		self.chat.setFocus()
-		self.chat.verticalScrollBar().setSliderPosition(
-			self.chat.verticalScrollBar().maximum())
-		print(self.chat.verticalScrollBar().maximum())
+
 		self.message.setFocus()
+		
+		# self.chat.verticalScrollBar().setSliderPosition(
+		# 	self.chat.verticalScrollBar().maximum())
 
 	def connect_to_server(self):
-		print(f"[{self.connect_to_server.__name__}]: preparing to get/check user id")
+		print(f"[{self.connect_to_server.__name__}]: establishing connection, preparing to get/check user id")
 		self.user_id_handler(self.user_id)
 		self.server.method(CONNECT, {"user_id": self.user_id})
+
 		self.load_messages()
 		self.connection_established = True
-		# self.write_signal.emit(CONNECT, "",
-		#                        "You are", "connected")
 
 		self.thread = threading.Thread(target=self.listen_server)
 		self.thread.start()
@@ -131,9 +202,10 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		print(f"[{self.generateSettingsWindow.__name__}]: preparing to create `Settings` window")
 		self.settings.exec_()
 
-		print(f"[{self.generateSettingsWindow.__name__}]: self.connection_established = {self.connection_established}")
+		print(f"[{self.generateSettingsWindow.__name__}]: self.connection_established = {self.connection_established}...self.settings.text = {self.settings.text}")
 
-		if self.connection_established == False:
+		if self.connection_established == False or self.settings.text == self.settings.NICKNAME_EXISTS:
+			self.settings.text = ""
 			self.generateSettingsWindow()
 
 	def read_config(self, nickname = False, user_id = False, host = False):
@@ -178,7 +250,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if ok and self.ID_UNCONFIRMED:
 			print(f"[{self.info_window.__name__}]: id UNCONFIRMED.")
 
-			if self.server.connected:
+			if self.server.respond:
 				self.send(DISCONNECT, self.nickname)
 				print(f"[{self.info_window.__name__}]: closing connection...", end="")
 
@@ -189,6 +261,15 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 			print(f"[{self.info_window.__name__}]: closing application.")
 			self.close()
+	
+	def get_data(self, method):
+		while True:
+			data = self.server.get_data()
+
+			if method not in data:
+				continue
+			else:
+				return data
 
 	def user_id_handler(self, arg):
 		'''
@@ -196,14 +277,20 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		'''
 
 		if arg == None:
-			response = self.server.method(GET_ID, {"nickname": self.config.read("nickname")})
-			self.config.write("user_id", response["user_id"])
+			self.server.method(GET_ID, {"nickname": self.config.read("nickname")})
+
+			data = self.get_data(GET_ID)
+
+			self.config.write("user_id", data["user_id"])
 			self.read_config(user_id=True)
 		else:
-			response = self.server.method(CHECK, {"user_id": self.user_id})
-			self.ID_UNCONFIRMED = not response["ok"]
+			self.server.method(CHECK, {"user_id": self.user_id})
 
-			if response["ok"]:
+			data = self.get_data(CHECK)
+
+			self.ID_UNCONFIRMED = not data["confirmed"]
+
+			if data["confirmed"]:
 				print("USER_ID confirmed!")
 			else:
 				print("Invalid user_id")
@@ -231,12 +318,13 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 			while (self.listening_active):
 				if time.time() - t > 5:
 					break
-				
+
 				continue
 
 			print("closed.")
 
 		self.config.close()
+		self.server.handler_is_on = False
 		print("Exited")
 		evnt.accept()
 	
@@ -258,58 +346,52 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				if len(msg) > 512:
 					msg = msg[512:]
 
-				self.server.method(MSG, {"message": msg, "user_id": self.user_id})
+				self.server.method(MSG, {"message": msg, "user_id": self.user_id, "color": color})
 
-				sleep(0.3)
+				time.sleep(0.3)
 				self.message.setFocus()
 	
-	@QtCore.Slot(str, str, str, str)
-	def write_chat(self, type_, time_, name, text):
-		message_template = f'''
-		<span style="color:rgb(130,141,148);" id=time>[{time_}] </span>
-		<span style="color:rgb(125,47,218);" id=name>{name}: </span>
-		<span style="color:rgb(245,245,245);" id=text>{text}</span>
-		'''
+	@QtCore.Slot(str, str, str, str, str)
+	def write_chat(self, type_, time_, name, text, color_):	
+		if type_ == CONNECT or type_ == DISCONNECT:
+			connection_template.format(name, text)
 
-		connection_template = f'''
-		<span style="color:rgb(51,57,63);">[ </span>
-		<span style="color:rgb(51,57,63);">{name}</span>
-		<span style="color:rgb(51,57,63);">{text}. ]</span>
-		'''
-
-		nick_template = f'''
-		<span style="color:rgb(51,57,63);">[ </span>
-		<span style="color:rgb(51,57,63);">{name}</span>
-		<span style="color:rgb(51,57,63);">nickname now is {text} ]</span>
-		'''
-
-		template = ""
-		
-		if type_ == CONNECT or DISCONNECT:
-			template = connection_template
+			self.chat.text_chat = connection_template.format(name, text) + self.chat.text_chat
 
 		if type_ == MSG:
-			template = message_template
+			l = len(text + time_)
+			width = l * 9
+				
+			if width > 300:
+				width = 290
+
+			if name == "You":
+				template = message_to.format(width, text, time_)
+			else:
+				if l < len(name)+1:
+					width = (len(name)+1) * 9
+
+				template = message_from.format(width, color_, name, text, time_)
+
+			self.chat.text_chat = template + self.chat.text_chat
 		
 		if type_ == NICK:
-			template = nick_template
-
-		self.text_chat += f'''<div style="font-family:Calibri;font-size:12pt;">{template}</div>'''
-		self.chat.setHtml(self.text_chat)
-		self.chat.verticalScrollBar().setSliderPosition(0)
-
-		if self.connection_established:
-			time.sleep(0.03)
-
-		self.chat.verticalScrollBar().setSliderPosition(self.chat.verticalScrollBar().maximum())
+			self.chat.text_chat = nick_template.format(name, text) + self.chat.text_chat
 
 	def load_messages(self):
 		after = self.config.read("first_open_time")
-		data_events = self.server.method("events.getAll")["events"]
+		self.server.method("events.getAll")
+
+		data = self.get_data("allEvents")
+			
+		data_events = data["allEvents"]
 
 		if data_events:
 			for data in data_events:
 				self.processing_data(data, on_loading=True, after=after)
+
+	def listening_is_on(self, status):
+		self.paused = not status
 
 	def listen_server(self):
 		'''
@@ -322,10 +404,19 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		while self.listening_active:
 			try:
-				data = self.server.method("events.get", {"after": after})["events"]
+				if self.paused:
+					continue
 
-				if data:
-					data = data[-1]
+				self.server.method("events.get", {"after": after})
+
+				_data = self.server.get_data()
+
+				if "events" in _data:
+					if not len(_data["events"]):
+						time.sleep(0.34)
+						continue
+
+					data = _data["events"][-1]
 					after = data["time"]
 				else:
 					time.sleep(0.34)
@@ -348,45 +439,40 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				return
 
 		if data["type"] == NICK:
-			if data["confirmed"] == True:
-				if data["user_id"] == self.user_id:
-					self.config.write("nickname", data["new_name"])
-					self.read_config()
-					self.write_signal.emit(data["type"], "", "Your", f"{data['new_name']}")
-				else:
-					self.write_signal.emit(data["type"], "", f"{data['old_name']}", f"{data['new_name']}")
+			if data["user_id"] == self.user_id:
+				self.config.write("nickname", data["new_name"])
+				self.read_config()
+				self.write_signal.emit(NICK, "", "Your", f"{data['new_name']}", "")
 			else:
-				self.write_signal.emit(data[1], "black")
+				self.write_signal.emit(NICK, "", f"{data['old_name']}", f"{data['new_name']}", "")
 
 		elif data["type"] == DISCONNECT:
 			if data["user_id"] == self.user_id and not on_loading:
 				self.listening_active = False
 			elif data["user_id"] != self.user_id:
-				self.write_signal.emit(data["type"], "", data['username'], "disconnected")
+				self.write_signal.emit(data["type"], "", data['username'], "disconnected", "")
 			elif data["user_id"] == self.user_id and on_loading:
-				self.write_signal.emit(data["type"], "", "You are", "disconnected")
+				self.write_signal.emit(data["type"], "", "You are", "disconnected", "")
 
 		elif data["type"] == MSG:
 			if data["user_id"] == self.user_id:
-				self.write_signal.emit(data["type"], self.time(data['time']), "You", data['message'])
+				self.write_signal.emit(data["type"], self.time(data['time']), "You", data['message'], "")
 			else:
 				if self.message_audio != None and not on_loading:
 					self.PLAY_AUDIO.emit()
 					
-				self.write_signal.emit(data["type"], self.time(data['time']), data['username'], data['message'])
+				self.write_signal.emit(data["type"], self.time(data['time']), data['username'], data['message'], data['color'])
 		
 		elif data["type"] == CONNECT:
 			if data["user_id"] != self.user_id:
-				self.write_signal.emit(data["type"], "", data['username'], "connected")
+				self.write_signal.emit(data["type"], "", data['username'], "connected", "")
 			if data["user_id"] == self.user_id:
-				self.write_signal.emit(data["type"], "", "You are", "connected")
+				self.write_signal.emit(data["type"], "", "You are", "connected", "")
 		
 		if not on_loading:
 			time.sleep(0.34)
 		else:
 			return
-
-			
 
 
 if __name__ == '__main__':

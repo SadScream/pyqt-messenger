@@ -1,12 +1,18 @@
-import requests
+import requests, threading
 
 
 class Server:
 	def __init__(self, window):
 		self.window = window
-		self.connected = False
+		self.respond = False
 		self.host = None
+		self._th = None
 
+		self.handler_is_on = True
+
+		self._requests = []
+		self.data = []
+		self._data_is_empty = True
 		self.methods = [
                     "user.getUsernames",
 					"user.check", "user.getid",
@@ -17,7 +23,7 @@ class Server:
 					]
 	
 	def init(self, host):
-		self.connected = False
+		self.respond = False
 		self.window.connection_established = False
 
 		self.host = self._host_to_url(host)
@@ -26,8 +32,40 @@ class Server:
 		if not valid:
 			raise Exception("Invalid host or server doesn't respond")
 		else:
-			self.connected = True
+			self.respond = True
+			self._th = threading.Thread(target=self.request_handler)
+			self._th.start()
 			print("Host is valid!")
+	
+	def request_handler(self):
+		while self.handler_is_on:
+			if len(self._requests):
+				f = self._requests[0]["method"]
+				args = self._requests[0]["args"]
+ 
+				self._requests.pop(0)
+
+				try:
+					if len(args) == 2:
+						r = f(args[0], json=args[1])
+					else:	
+						r = f(args)
+				except requests.ConnectionError:
+					self.respond = False
+					self.window.connection_established = False
+					self.window.SERVER_ERROR.emit("Connection error")
+					raise Exception("[SERVER] Connection error")
+				except Exception as E:
+					self.respond = False
+					self.window.connection_established = False
+					self.window.SERVER_ERROR.emit(f"Unknown error while trying to get data - {E}")
+					raise Exception(f"[SERVER] Unknown error while trying to get data - {E}")
+
+				# if "ok" in r.json() and len(r.json()) == 1:
+				# 	continue 
+				
+				self.data.append(r.json())
+				self._data_is_empty = False
 
 	def method(self, method:str, data:dict = {}):
 		if method not in self.methods:
@@ -37,23 +75,35 @@ class Server:
 			self.window.SERVER_ERROR.emit("Data param should be a dictionary")
 			raise Exception("[SERVER] Data param should be a dictionary")
 		
-		try:
-			if data:
-				response = requests.post(f"{self.host}/{method}", json=data)
-			else:
-				response = requests.get(f"{self.host}/{method}")
-		except requests.ConnectionError:
-			self.connected = False
-			self.window.connection_established = False
-			self.window.SERVER_ERROR.emit("Connection error")
-			raise Exception("[SERVER] Connection error")
-		except Exception as E:
-			self.connected = False
-			self.window.connection_established = False
-			self.window.SERVER_ERROR.emit(f"Unknown error while trying to get data - {E}")
-			raise Exception(f"[SERVER] Unknown error while trying to get data - {E}")
+		if data:
+			self._requests.append(
+				{"method": requests.post, "args": (f"{self.host}/{method}", data)})
+		else:
+			self._requests.append(
+				{"method": requests.get, "args": (f"{self.host}/{method}")})
+	
+	def get_data(self):
+		while True:
+			d = self._get_data()
 
-		return response.json()
+			if (d and "ok" in d) or not d:
+				continue
+
+			if d:
+				return d
+
+	def _get_data(self):
+		if self._data_is_empty:
+			return None
+		else:
+			data = self.data[0]
+			self.data.pop(0)
+
+			if not len(self.data):
+				self._data_is_empty = True
+
+			# print("server _GET_DATA", data)
+			return data
 	
 	def _check_host(self):
 		print(f"[{self._check_host.__name__}]: preparing to check host...", end="")

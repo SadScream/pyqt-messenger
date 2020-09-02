@@ -4,8 +4,8 @@ import time
 from json_handler import Json_handler
 
 
-app = Flask(__name__)
 config = Json_handler()
+app = Flask(__name__)
 
 
 def event(type_:str, user_id:int, **kwargs):
@@ -16,7 +16,7 @@ def event(type_:str, user_id:int, **kwargs):
 	return e
 
 
-@app.route("/", methods=['POST'])
+@app.route("/", methods=['POST', 'GET'])
 def main_page():
 	"""
 	-> JSON {
@@ -55,10 +55,11 @@ def get_nicknames():
 def check_id():
 	"""
 	-> JSON {
-		"user_id": int,
+		"user_id": int
 	}
 	:return: JSON {
-		"ok": bool
+		"check": true,
+		"confirmed": bool,
 		"user_id": int
 	}
 	"""
@@ -66,9 +67,9 @@ def check_id():
 	user_id = request.json["user_id"]
 
 	if user_id >= 0 and user_id <= config.most_user_id:
-		return {"ok": True, "user_id": user_id}
+		return {"user.check": True, "confirmed": True, "user_id": user_id}
 	else:
-		return {"ok": False, "user_id": user_id}
+		return {"user.check": True, "confirmed": False, "user_id": user_id}
 
 
 @app.route("/user.getid", methods=['POST'])
@@ -78,6 +79,7 @@ def get_id():
 		"nickname": str,
 	}
 	:return: JSON {
+		"user.getid": true,
 		"user_id": int
 	}
 	"""
@@ -87,7 +89,7 @@ def get_id():
 
 	config.write_user(n, nickname)
 
-	return {"user_id": n}
+	return {"user.getid": True, "user_id": n}
 
 
 @app.route("/messages.send", methods=['POST'])
@@ -95,7 +97,8 @@ def send_message():
 	"""
 	-> JSON {
 		"user_id": int,
-		"message": str
+		"message": str,
+		"color": str
 	}
 	:return: JSON {'ok': true}
 	"""
@@ -103,8 +106,9 @@ def send_message():
 	r = request.json
 	user_id = r["user_id"]
 	message = r["message"]
+	color = r["color"]
 
-	config.write_event(event(type_="messages.send", user_id=user_id, message=message, username=config.read_username(user_id)))
+	config.write_event(event(type_="messages.send", user_id=user_id, message=message, username=config.read_username(user_id), color=color))
 
 	return {"ok": True}
 
@@ -154,10 +158,6 @@ def nick_change():
 	user_id = request.json["id"]
 	nickname = request.json["nickname"]
 
-	for user in config.read_field("users"):
-		if list(user.values())[0] == nickname:
-			return {"ok": False}
-
 	config.write_event(
 		event(
 			type_="user.rename", user_id=user_id,
@@ -198,7 +198,7 @@ def get_events():
 def get_all_events():
 	"""
 	:return: JSON {
-		"events": [
+		"allEvents": [
 			{ "type": str, "user_id": str, "message": str, "time": float }
 			...
 		]
@@ -206,7 +206,7 @@ def get_all_events():
 	"""
 
 	return {
-		'events': config.read_field("events")
+		'allEvents': config.read_field("events")
 	}
 
 

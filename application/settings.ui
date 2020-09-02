@@ -26,8 +26,8 @@
    <string>Settings</string>
   </property>
   <property name="windowIcon">
-   <iconset>
-    <normaloff>icons/settings.png</normaloff>icons/settings.png</iconset>
+   <iconset resource="res.qrc">
+    <normaloff>:/menuBar/icons/settings.png</normaloff>:/menuBar/icons/settings.png</iconset>
   </property>
   <widget class="QGroupBox" name="generalBox">
    <property name="geometry">
