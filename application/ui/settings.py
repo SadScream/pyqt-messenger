@@ -67,7 +67,7 @@ class Ui_Dialog(object):
 		self.hostLine.setAcceptDrops(False)
 		self.hostLine.setInputMethodHints(QtCore.Qt.ImhLatinOnly)
 		self.hostLine.setText("")
-		self.hostLine.setMaxLength(16)
+		self.hostLine.setMaxLength(40)
 		self.hostLine.setObjectName("hostLine")
 		self.generalForm.setWidget(
 			1, QtWidgets.QFormLayout.FieldRole, self.hostLine)
