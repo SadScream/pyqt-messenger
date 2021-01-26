@@ -1,11 +1,11 @@
 from PySide2.QtCore import (QCoreApplication, QDate, QDateTime, QMetaObject,
-	QObject, QPoint, QRect, QSize, QTime, QUrl, Qt)
+	QObject, QPoint, QRect, QSize, QSizeF, QTime, QUrl, Qt, QEvent)
 from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
 	QFontDatabase, QIcon, QKeySequence, QLinearGradient, QPalette, QPainter,
 	QPixmap, QRadialGradient)
 from PySide2.QtWidgets import *
 
-from PySide2.QtWebEngineWidgets import QWebEngineView as QWebView
+from PySide2.QtWebEngineWidgets import QWebEngineView as QWebView, QWebEnginePage, QWebEngineSettings
 
 try:
 	from . import res_rc
@@ -23,6 +23,9 @@ class Chat(QWebView):
 		self._text = ''
 		self.html = ''
 		self.text_chat = ''
+
+	def contextMenuEvent(self, e):
+		e.ignore()
 
 	@text_chat.getter
 	def text_chat(self):
