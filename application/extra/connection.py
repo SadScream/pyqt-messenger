@@ -5,14 +5,14 @@ class Server:
 	def __init__(self, window):
 		self.window = window
 		self.respond = False
+		self.handler_is_on = True
 		self.host = None
 		self._th = None
 
-		self.handler_is_on = True
-
 		self._requests = []
+
 		self.data = []
-		self._data_is_empty = True
+
 		self.methods = [
                     "user.getUsernames",
 					"user.check", "user.getid",
@@ -40,10 +40,11 @@ class Server:
 	def request_handler(self):
 		while self.handler_is_on:
 			if len(self._requests):
-				f = self._requests[0]["method"]
-				args = self._requests[0]["args"]
- 
+				tmp = self._requests[0]
 				self._requests.pop(0)
+
+				f = tmp["method"]
+				args = tmp["args"]
 
 				try:
 					if len(args) == 2:
@@ -60,12 +61,9 @@ class Server:
 					self.window.connection_established = False
 					self.window.SERVER_ERROR.emit(f"Unknown error while trying to get data - {E}")
 					raise Exception(f"[SERVER] Unknown error while trying to get data - {E}")
-
-				# if "ok" in r.json() and len(r.json()) == 1:
-				# 	continue 
 				
 				self.data.append(r.json())
-				self._data_is_empty = False
+				# print(self.data[-1])
 
 	def method(self, method:str, data:dict = {}):
 		if method not in self.methods:
@@ -82,28 +80,37 @@ class Server:
 			self._requests.append(
 				{"method": requests.get, "args": (f"{self.host}/{method}")})
 	
-	def get_data(self):
+	def get_data(self, event_type=None, request_type=None):
 		while True:
-			d = self._get_data()
-
-			if (d and "ok" in d) or not d:
+			if len(self.data) == 0:
 				continue
 
-			if d:
-				return d
-
-	def _get_data(self):
-		if self._data_is_empty:
-			return None
-		else:
 			data = self.data[0]
-			self.data.pop(0)
 
-			if not len(self.data):
-				self._data_is_empty = True
+			if data and "ok" in data:
+				self.data.pop(0)
+				continue
 
-			# print("server _GET_DATA", data)
-			return data
+			elif data:
+
+				if event_type:
+					continue
+				if request_type and request_type not in data:
+					continue
+
+				self.data.pop(0)
+				return data
+
+			elif not data:
+				continue
+
+	def get_events(self, after):
+		self.method("events.get", {"after": after})
+		return self.get_data(request_type="events")
+
+	def get_all_events(self):
+		self.method("events.getAll")
+		return self.get_data(request_type="allEvents")["allEvents"]
 	
 	def _check_host(self):
 		print(f"[{self._check_host.__name__}]: preparing to check host...", end="")

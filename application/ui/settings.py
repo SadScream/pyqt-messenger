@@ -245,8 +245,7 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 			print("Checking nickname...", end="")
 
 			self.server.method("user.getUsernames")
-
-			result = self.window.get_data("usernames")
+			result = self.server.get_data(request_type="usernames")
 
 			if name in result["usernames"]:
 				print("nickname already taken...")

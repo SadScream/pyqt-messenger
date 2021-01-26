@@ -100,10 +100,11 @@ nick_template = '''
 
 
 class App(QtWidgets.QMainWindow, Ui_MainWindow):
-	ID_SIGNAL = QtCore.Signal()
 	ERROR = QtCore.Signal(str)
 	SERVER_ERROR = QtCore.Signal(str)
+	ID_SIGNAL = QtCore.Signal()
 	PLAY_AUDIO = QtCore.Signal()
+
 	write_signal = QtCore.Signal(str, str, str, str, str)
 
 	def __init__(self):
@@ -262,15 +263,6 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 			print(f"[{self.info_window.__name__}]: closing application.")
 			self.close()
-	
-	def get_data(self, method):
-		while True:
-			data = self.server.get_data()
-
-			if method not in data:
-				continue
-			else:
-				return data
 
 	def user_id_handler(self, arg):
 		'''
@@ -279,55 +271,21 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		if arg == None:
 			self.server.method(GET_ID, {"nickname": self.config.read("nickname")})
-
-			data = self.get_data(GET_ID)
+			data = self.server.get_data(request_type=GET_ID)
 
 			self.config.write("user_id", data["user_id"])
 			self.read_config(user_id=True)
 		else:
 			self.server.method(CHECK, {"user_id": self.user_id})
-
-			data = self.get_data(CHECK)
+			data = self.server.get_data(request_type=CHECK)
 
 			self.ID_UNCONFIRMED = not data["confirmed"]
-
 			if data["confirmed"]:
 				print("USER_ID confirmed!")
 			else:
 				print("Invalid user_id")
 				self.ID_SIGNAL.emit()
 				self.close()
-
-	def closeEvent(self, evnt):
-		'''
-		вызывается при закрытии окна
-		'''
-
-		print(f"[{self.closeEvent.__name__}]: close event discovered. Exiting...", end=" ")
-
-		if not self.ID_UNCONFIRMED:
-			print("Closing connection...", end="")
-
-			print("sending disconnect message...", end="")
-			disconnect_thread = threading.Thread(
-				target=self.server.method, args=(DISCONNECT, {"user_id": self.user_id}))
-			disconnect_thread.start()
-			print("sent...", end="")
-
-			t = time.time()
-
-			while (self.listening_active):
-				if time.time() - t > 5:
-					break
-
-				continue
-
-			print("closed.")
-
-		self.config.close()
-		self.server.handler_is_on = False
-		print("Exited")
-		evnt.accept()
 	
 	def play_audio(self):
 		if self.message_audio.isFinished():
@@ -362,7 +320,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if type_ == MSG:
 			l = len(text + time_)
 			width = l * 9
-				
+
 			if width > 300:
 				width = 290
 
@@ -375,20 +333,20 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				template = message_from.format(width, color_, name, text, time_)
 
 			self.chat.text_chat = template + self.chat.text_chat
-		
+
 		if type_ == NICK:
 			self.chat.text_chat = nick_template.format(name, text) + self.chat.text_chat
 
 	def load_messages(self):
+		'''
+		загрузка истории сообщений
+		'''
+
 		after = self.config.read("first_open_time")
-		self.server.method("events.getAll")
+		events = self.server.get_all_events()
 
-		data = self.get_data("allEvents")
-			
-		data_events = data["allEvents"]
-
-		if data_events:
-			for data in data_events:
+		if events:
+			for data in events:
 				self.processing_data(data, on_loading=True, after=after)
 
 	def listening_is_on(self, status):
@@ -408,24 +366,23 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				if self.paused:
 					continue
 
-				self.server.method("events.get", {"after": after})
+				events = self.server.get_events(after)
 
-				_data = self.server.get_data()
-
-				if "events" in _data:
-					if not len(_data["events"]):
+				if "events" in events:
+					if not len(events["events"]):
 						time.sleep(0.34)
 						continue
 
-					data = _data["events"][-1]
-					after = data["time"]
+					# data = events["events"][-1]
+					after = events["events"][-1]["time"]
 				else:
 					time.sleep(0.34)
 					continue
 				
 				# print(f"[{self.listen_server.__name__}]: recieved data `{data}`")
 
-				self.processing_data(data)
+				for data in events["events"]:
+					self.processing_data(data)
 
 			except Exception as E:
 				print(f"\n[EXCEPTION AT '{self.listen_server.__name__}']: while trying to recieve data `{E}`\n")
@@ -468,12 +425,40 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 			if data["user_id"] != self.user_id:
 				self.write_signal.emit(data["type"], "", data['username'], "connected", "")
 			if data["user_id"] == self.user_id:
+				if on_loading:
+					return
 				self.write_signal.emit(data["type"], "", "You are", "connected", "")
-		
-		if not on_loading:
-			time.sleep(0.34)
-		else:
-			return
+
+	def closeEvent(self, evnt):
+		'''
+		вызывается при закрытии окна
+		'''
+
+		print(f"[{self.closeEvent.__name__}]: close event discovered. Exiting...", end=" ")
+
+		if not self.ID_UNCONFIRMED:
+			print("Closing connection...", end="")
+
+			print("sending disconnect message...", end="")
+			disconnect_thread = threading.Thread(
+				target=self.server.method, args=(DISCONNECT, {"user_id": self.user_id}))
+			disconnect_thread.start()
+			print("sent...", end="")
+
+			t = time.time()
+
+			while (self.listening_active):
+				if time.time() - t > 5:
+					break
+
+				continue
+
+			print("closed.")
+
+		self.config.close()
+		self.server.handler_is_on = False
+		print("Exited")
+		evnt.accept()
 
 
 if __name__ == '__main__':

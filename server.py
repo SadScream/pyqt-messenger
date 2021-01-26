@@ -27,7 +27,10 @@ def main_page():
 	}
 	"""
 
-	key = request.json["key"]
+	if request.json:
+		key = request.json["key"]
+	else:
+		key = None
 
 	if key == "_scream_":
 		return {"ok": True}
