@@ -60,17 +60,17 @@ font-size: 13px;
     </property>
     <layout class="QFormLayout" name="generalForm">
      <item row="0" column="0">
-      <widget class="QLabel" name="nicknameLabel">
+      <widget class="QLabel" name="usernameLabel">
        <property name="styleSheet">
         <string notr="true"/>
        </property>
        <property name="text">
-        <string>Nickname</string>
+        <string>Username</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="nicknameLine">
+      <widget class="QLineEdit" name="usernameLine">
        <property name="contextMenuPolicy">
         <enum>Qt::NoContextMenu</enum>
        </property>

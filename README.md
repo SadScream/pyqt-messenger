@@ -1,5 +1,5 @@
 # Qt Messenger
 
-Pretty simple qt messenger with server on flask
+Simple qt messenger with server on Flask
 
-![screenshot](./etc/example.jpg)
+![screenshot](./etc/example.png)

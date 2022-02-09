@@ -1,0 +1,6 @@
+USERNAME = "root"
+PASSWORD = "1234"
+HOST = "127.0.0.1:3306"
+DB_NAME = "py_messenger"
+APPNAME = "Messenger"
+SECRET_KEY = "test secret key"

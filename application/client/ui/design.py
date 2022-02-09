@@ -20,25 +20,8 @@ class Chat(QWebView):
 		self.window = window
 		super().__init__(parent)
 
-		self._text = ''
-		self.html = ''
-		self.text_chat = ''
-
-	def contextMenuEvent(self, e):
-		e.ignore()
-
-	@text_chat.getter
-	def text_chat(self):
-		return self._text
-	
-	@text_chat.setter
-	def text_chat(self, value):
-		self._text = value
-		self.addHtml()
-
-	def addHtml(self):
-		self.html = '''
-<!DOCTYPE html>
+		self.head = '''
+		<!DOCTYPE html>
 <html>
 	<head>
 	<meta charset="utf-8">
@@ -75,7 +58,7 @@ class Chat(QWebView):
 		}
 
 		.main::-webkit-scrollbar {
-			width: 8px; /* ширина для вертикального скролла */
+			width: 8px;
 			opacity: 1;
 		}
 
@@ -91,16 +74,27 @@ class Chat(QWebView):
 			border-radius: 9em;
 		}
 	</style>
-</head>
+</head>'''
+		self._text = ''
+		self.html = ''
+		self.text_chat = ''
 
-<body style="background: rgb(40,46,51);"> 
-	<div class="WRAPPER">''' \
-		f'''<div class="main">
-		{self._text}
-		</div>
-	</div>
-</body>
-</html>'''
+	def contextMenuEvent(self, e):
+		e.ignore()
+
+	@text_chat.getter
+	def text_chat(self):
+		return self._text
+	
+	@text_chat.setter
+	def text_chat(self, value):
+		self._text = value
+		self.addHtml()
+
+	def addHtml(self):
+		self.html = self.head + '''
+	<body style="background: rgb(40,46,51);"><div class="WRAPPER">''' \
+		f'''<div class="main">{self._text}</div></div></body></html>'''
 		self.setHtml(self.html)
 
 
