@@ -47,7 +47,7 @@ message_to = '''
 <div style="padding-top: 1px; padding-bottom: 1px; transform: scaleX(-1);">
 	<div style="border: none; padding-top: 3px; 
 				padding-bottom: 5px; transform: scaleX(-1);
-				background: linear-gradient(21deg, #dd03e4, #5611ec);
+				background-color: rgb(43,82,120);
 				border-radius: 5px; width: {0}px">
 
 		<span style="text-align: left;">
