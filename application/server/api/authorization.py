@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from flask_login import login_required, current_user, logout_user, login_user
 
 from tools.response import *
-from models.db_context import db, User, ConnectionHistory
+from models.db_context import db, User, Message, MessageTypes
 
 auth_api = Blueprint('auth_api', __name__)
 
@@ -85,9 +85,9 @@ def login():
 			data["ok"] = True
 			data["user_id"] = user_obj.user_id
 
-			event = ConnectionHistory(user_id=user_obj.user_id,
-									  is_connected=True,
-									  date=datetime.datetime.fromtimestamp(time.time()))
+			event = Message(user_id=user_obj.user_id,
+							msg_type=MessageTypes.CONNECTION,
+							date=datetime.datetime.fromtimestamp(time.time()))
 			db.session.add(event)
 			db.session.commit()
 
@@ -111,9 +111,9 @@ def logout():
 	}
 	'''
 
-	event = ConnectionHistory(user_id=current_user.user_id,
-							  is_connected=False,
-							  date=datetime.datetime.fromtimestamp(time.time()))
+	event = Message(user_id=current_user.user_id,
+					msg_type=MessageTypes.DISCONNECTION,
+					date=datetime.datetime.fromtimestamp(time.time()))
 	logout_user()
 	db.session.add(event)
 	db.session.commit()

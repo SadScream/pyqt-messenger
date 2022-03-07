@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from flask_login import login_required, current_user, logout_user
 
 from tools.response import *
-from models.db_context import db, User, Message, UsernameHistory
+from models.db_context import db, User, Message, MessageTypes
 
 user_api = Blueprint('user_api', __name__)
 
@@ -61,10 +61,11 @@ def change_username():
 
 		data["ok"] = True
 
-		event = UsernameHistory(user_id=current_user.user_id,
-								old_username=old_username,
-								new_username=current_user.username,
-								date=datetime.datetime.fromtimestamp(time.time()))
+		event = Message(user_id=current_user.user_id,
+						msg_type=MessageTypes.NAME_CHANGED,
+						old_username=old_username,
+						new_username=current_user.username,
+						date=datetime.datetime.fromtimestamp(time.time()))
 		db.session.add(event)
 		db.session.commit()
 

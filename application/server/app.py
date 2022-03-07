@@ -10,7 +10,6 @@ from config import *
 from models.db_context import db, User
 from tools.response import make_response
 from api import user, message, authorization
-from pulling import sender
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql://{USERNAME}:{PASSWORD}@{HOST}/{DB_NAME}'
@@ -28,7 +27,6 @@ migrate = Migrate(app, db, compare_type=True)
 app.register_blueprint(user.user_api, url_prefix="/api")
 app.register_blueprint(message.msg_api, url_prefix="/api")
 app.register_blueprint(authorization.auth_api, url_prefix="/api")
-app.register_blueprint(sender.sender)
 
 
 @login_manager.user_loader

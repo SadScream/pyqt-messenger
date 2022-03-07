@@ -209,11 +209,11 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 	def on_event(self, events):
 		# print(events)
 		for event in events:
-			if event["type"] == "messages":
+			if event["type"] == 0:
 				self.process_message(event)
-			elif event["type"] == "usernames":
+			elif event["type"] == 3:
 				self.process_username(event)
-			elif event["type"] == "connections":
+			elif event["type"] in (1, 2):
 				self.process_connection(event)
 
 	def process_message(self, event):
@@ -226,7 +226,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		if width > 300:
 			width = 290
 
-		if event["owner_id"] == self.config.user_id:
+		if event["user_id"] == self.config.user_id:
 			self.message_audio.play()
 			template = message_to.format(width, text, time_)
 		else:
@@ -245,7 +245,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.chat.text_chat = nick_template.format(old_name, new_name) + self.chat.text_chat
 
 	def process_connection(self, event):
-		text = "connected." if event["is_connected"] else "disconnected."
+		text = "connected." if event["type"] == 1 else "disconnected."
 
 		if self.config.user_id == event["user_id"]:
 			name = "You are"

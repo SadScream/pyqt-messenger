@@ -1,9 +1,17 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.mysql import DATETIME
 from flask_login import UserMixin
+from enum import IntEnum
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+
+class MessageTypes(IntEnum):
+	NEW_MESSAGE = 0
+	CONNECTION = 1
+	DISCONNECTION = 2
+	NAME_CHANGED = 3
 
 
 class User(db.Model, UserMixin):
@@ -28,35 +36,13 @@ class User(db.Model, UserMixin):
 class Message(db.Model):
 	__tablename__ = 'message'
 	message_id = db.Column(db.Integer, primary_key=True)
-	owner_id = db.Column(
-		db.Integer,
-		db.ForeignKey("user.user_id",
-					  ondelete='CASCADE'),
-	)
-	text = db.Column(db.String(1024), nullable=False)
-	date = db.Column(DATETIME(fsp=6), nullable=False)
-
-
-class UsernameHistory(db.Model):
-	__tablename__ = 'usernamehistory'
-	event_id = db.Column(db.Integer, primary_key=True)
 	user_id = db.Column(
 		db.Integer,
 		db.ForeignKey("user.user_id",
 					  ondelete='CASCADE'),
 	)
-	old_username = db.Column(db.String(36), nullable=False)
-	new_username = db.Column(db.String(36), nullable=False)
-	date = db.Column(DATETIME(fsp=6), nullable=False)
-
-
-class ConnectionHistory(db.Model):
-	__tablename__ = 'connectionhistory'
-	event_id = db.Column(db.Integer, primary_key=True)
-	user_id = db.Column(
-		db.Integer,
-		db.ForeignKey("user.user_id",
-					  ondelete='CASCADE'),
-	)
-	is_connected = db.Column(db.Boolean, nullable=False) # connection if true, disconnection if false
+	msg_type = db.Column(db.Enum(MessageTypes), nullable=False)
+	old_username = db.Column(db.String(36))
+	new_username = db.Column(db.String(36))
+	text = db.Column(db.String(1024))
 	date = db.Column(DATETIME(fsp=6), nullable=False)

@@ -34,7 +34,7 @@ class Puller:
 
 	def pull_once(self):
 		try:
-			response: list = self.connection.get_events()
+			response: list = self.connection.get_messages()
 
 			if self.error_catched:
 				self.error_catched = False
@@ -46,7 +46,7 @@ class Puller:
 			self.event_listener(E)
 			return
 
-		response = sorted(response, key=lambda obj: obj["date"])
+		response = sorted(response['messages'], key=lambda obj: obj["date"])
 
 		if len(response) and response[-1]["date"] > self.last_datetime:
 			if self.event_listener:

@@ -3,18 +3,14 @@ try:
 	from request_types.authorization import Authorization
 	from request_types.message import Message
 	from request_types.user import User
-	from request_types.events import Events
 except ModuleNotFoundError:
 	from .errors import *
 	from .request_types.authorization import Authorization
 	from .request_types.message import Message
 	from .request_types.user import User
-	from .request_types.events import Events
-
-from requests import exceptions
 
 
-class Connection(Authorization, Message, User, Events):
+class Connection(Authorization, Message, User):
 
 	def __init__(self, host=None):
 		super().__init__(host)
