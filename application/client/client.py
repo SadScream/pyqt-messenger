@@ -85,6 +85,8 @@ nick_template = '''
 	<span>{0}</span>
 	<span>username now is {1}</span>
 </div>'''
+
+
 # templates
 
 
@@ -101,15 +103,10 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		path_to_audio = os.path.join(os.path.split(path_to_file)[0], "audio")
 		self.message_audio = None
 
-		print("Search for message sound in:\n")
-		print(f"\tpath to file: {os.path.split(path_to_file)[0]}")
-		print(f"\tpath to audio: {path_to_audio}...", end="")
-
 		if "audio" in os.listdir(os.path.split(path_to_file)[0]) and "msg.wav" in os.listdir(path_to_audio):
 			self.message_audio = QtMultimedia.QSound(os.path.join(path_to_audio, "msg.wav"))
-			print("found!")
 		else:
-			print("NOT found!")
+			raise FileNotFoundError("Файл msg.wav не найден в директории audio")
 
 		self.config = Config()
 
@@ -124,11 +121,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.settings = Settings(self.connection, self.config)
 
 	def constructor(self):
-		print(f"[{self.constructor.__name__}]: setting parameters...", end="")
-
 		self.message.setTabStopDistance(4.0)
-
-		print("setting binds of signals...", end="")
 		self.settingButton.triggered.connect(self.generateSettingsWindow)
 		self.direct.clicked.connect(self.message_handler)
 
@@ -138,15 +131,13 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 		self.settingButton.triggered.emit()
 
-		self.load_messages()
-
 		print(f"[{self.constructor.__name__}]: preparing to show window")
 		self.show()
 
 		self.message.setFocus()
-		
-		# self.chat.verticalScrollBar().setSliderPosition(
-		# 	self.chat.verticalScrollBar().maximum())
+
+	# self.chat.verticalScrollBar().setSliderPosition(
+	# 	self.chat.verticalScrollBar().maximum())
 
 	def generate_password(self):
 		alphabet = string.ascii_letters + string.digits
@@ -170,7 +161,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		return t.strftime('%H:%M')
 
 	@QtCore.Slot()
-	def info_window(self, text = False):
+	def info_window(self, text=False):
 		'''
 		вызов окна с определенным сообщением
 		'''
@@ -186,7 +177,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		self.show_message.setWindowTitle("Ошибка")
 
 		ok = self.show_message.exec_()
-	
+
 	def play_audio(self):
 		if self.message_audio.isFinished():
 			self.message_audio.play()
@@ -195,7 +186,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		'''
 		функция для отправки сообщений
 		'''
-		
+
 		msg = self.message.toPlainText()
 
 		if not (msg.isspace()):
@@ -208,13 +199,6 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 				self.connection.send_message(msg, date=time.time())
 				self.message.setFocus()
 
-	def load_messages(self):
-		'''
-		загрузка истории сообщений при старте приложения
-		'''
-
-		self.puller.pull_once()
-
 	def puller_event_handler(self, data):
 		if isinstance(data, list):
 			self.EVENT.emit(data)
@@ -223,6 +207,7 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 
 	@QtCore.Slot(list)
 	def on_event(self, events):
+		# print(events)
 		for event in events:
 			if event["type"] == "messages":
 				self.process_message(event)
@@ -236,13 +221,13 @@ class App(QtWidgets.QMainWindow, Ui_MainWindow):
 		name = event["username"]
 		time_ = self.time(event["date"])
 
-		l = len(text + time_)
-		width = l * 9
+		width = len(text + time_) * 9
 
 		if width > 300:
 			width = 290
 
 		if event["owner_id"] == self.config.user_id:
+			self.message_audio.play()
 			template = message_to.format(width, text, time_)
 		else:
 			template = message_from.format(width, "rgb(225, 103, 148)", name, text, time_)

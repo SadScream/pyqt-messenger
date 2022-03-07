@@ -145,6 +145,11 @@ class Settings(QtWidgets.QDialog, Ui_Dialog):
 			return self.on_error_signal.emit(ValueError())
 
 		try:
+			self.connection.ping()
+		except ServerUnavailableError as E: # noqa
+			return self.on_error_signal.emit(E)
+
+		try:
 			self.connection.set_host(host)
 			self.config.host = host
 		except ServerUnavailableError as E: # noqa

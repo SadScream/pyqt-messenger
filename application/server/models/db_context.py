@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.mysql import DATETIME
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -33,7 +34,7 @@ class Message(db.Model):
 					  ondelete='CASCADE'),
 	)
 	text = db.Column(db.String(1024), nullable=False)
-	date = db.Column(db.DateTime, nullable=False)
+	date = db.Column(DATETIME(fsp=6), nullable=False)
 
 
 class UsernameHistory(db.Model):
@@ -46,7 +47,7 @@ class UsernameHistory(db.Model):
 	)
 	old_username = db.Column(db.String(36), nullable=False)
 	new_username = db.Column(db.String(36), nullable=False)
-	date = db.Column(db.DateTime, nullable=False)
+	date = db.Column(DATETIME(fsp=6), nullable=False)
 
 
 class ConnectionHistory(db.Model):
@@ -58,4 +59,4 @@ class ConnectionHistory(db.Model):
 					  ondelete='CASCADE'),
 	)
 	is_connected = db.Column(db.Boolean, nullable=False) # connection if true, disconnection if false
-	date = db.Column(db.DateTime, nullable=False)
+	date = db.Column(DATETIME(fsp=6), nullable=False)

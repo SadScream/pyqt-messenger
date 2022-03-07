@@ -9,8 +9,8 @@ class Puller:
 	serve = False
 	connection: Connection
 	thread: threading.Thread
-	last_event: dict = None
-	event_listener = None
+	last_datetime: float = 0
+	event_listener = None  # функция, которая будет вызываться при появлении новых событий
 	error_catched = False
 
 	def __init__(self, connection, event_listener):
@@ -25,6 +25,7 @@ class Puller:
 
 	def stop_pulling(self):
 		self.serve = False
+		self.last_datetime = 0
 
 	def pull_forever(self):
 		while self.serve:
@@ -47,13 +48,8 @@ class Puller:
 
 		response = sorted(response, key=lambda obj: obj["date"])
 
-		if response and response[-1] != self.last_event:
-			try:
-				start = response.index(self.last_event)
-			except ValueError:
-				start = 0
-
-			self.last_event = response[-1]
-
+		if len(response) and response[-1]["date"] > self.last_datetime:
 			if self.event_listener:
-				self.event_listener(response[start+1:])
+				self.event_listener(list(filter(lambda obj: obj["date"] > self.last_datetime, response)))
+
+			self.last_datetime = response[-1]["date"]

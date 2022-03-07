@@ -11,15 +11,22 @@ except ModuleNotFoundError:
 	from .request_types.user import User
 	from .request_types.events import Events
 
+from requests import exceptions
+
 
 class Connection(Authorization, Message, User, Events):
 
 	def __init__(self, host=None):
 		super().__init__(host)
-		self.ping(self.host)
 
-	def ping(self, host):
-		r = self.session.get(host)
+	def ping(self, host=None):
+		if host is None:
+			host = self.host
+
+		try:
+			r = self.session.get(host)
+		except Exception:
+			raise ServerUnavailableError("Given host doesn't respond")
 
 		if ("ok" not in r.json()) or (not r.json()["ok"]):
 			raise ServerUnavailableError("Given host doesn't respond")
