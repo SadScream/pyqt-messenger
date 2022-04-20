@@ -2,8 +2,8 @@ import datetime, time
 from flask import Blueprint, request
 from flask_login import login_required, current_user, logout_user, login_user
 
-from tools.response import *
-from models.db_context import db, User, Message, MessageTypes
+from tools.response import *  # noqa
+from models.db_context import db, User, Message, MessageTypes  # noqa
 
 auth_api = Blueprint('auth_api', __name__)
 

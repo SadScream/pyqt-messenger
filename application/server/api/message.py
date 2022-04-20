@@ -72,7 +72,7 @@ def get_messages():
 
 	data["ok"] = True
 	data["messages"] = messages
-	return json_response(data, 404)
+	return json_response(data)
 
 
 @msg_api.route("/messages/<int:message_id>", methods=['GET'])
@@ -101,4 +101,4 @@ def get_message(message_id):
 
 		return json_response(data)
 
-	return json_response(data, 404)
+	return json_response(data, 200)
